@@ -9,6 +9,7 @@ create table if not exists public.tasks (
   id           uuid primary key default gen_random_uuid(),
   title        text not null,
   notes        text,
+  category     text,                                -- 工作 | 运动 | 生活
   done         boolean not null default false,
   due_date     date,
   created_at   timestamptz not null default now(),
@@ -22,6 +23,7 @@ create table if not exists public.routines (
   id         uuid primary key default gen_random_uuid(),
   name       text not null,
   icon       text,
+  category   text,                                  -- 工作 | 运动 | 生活
   weekdays   int[] not null default '{}',          -- ISO weekday: 1=Mon ... 7=Sun
   active     boolean not null default true,
   created_at timestamptz not null default now()
@@ -40,6 +42,10 @@ create table if not exists public.routine_logs (
 create index if not exists idx_tasks_done        on public.tasks(done);
 create index if not exists idx_tasks_due         on public.tasks(due_date);
 create index if not exists idx_logs_routine_date on public.routine_logs(routine_id, date);
+
+-- Migrations (safe to re-run on existing databases) ------------------
+alter table public.tasks    add column if not exists category text;   -- 工作 | 运动 | 生活
+alter table public.routines add column if not exists category text;
 
 -- Row Level Security ------------------------------------------------
 -- Personal single-user app: enable RLS and let the anon/authenticated

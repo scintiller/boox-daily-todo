@@ -11,6 +11,7 @@ data class Task(
     val done: Boolean = false,
     @SerialName("due_date") val dueDate: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    val category: String? = null,   // 工作 | 运动 | 生活
 )
 
 @Serializable
@@ -20,6 +21,7 @@ data class Routine(
     val icon: String? = null,
     val weekdays: List<Int> = emptyList(), // ISO weekday: 1=Mon .. 7=Sun
     val active: Boolean = true,
+    val category: String? = null,   // 工作 | 运动 | 生活
 )
 
 @Serializable

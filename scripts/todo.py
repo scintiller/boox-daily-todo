@@ -116,6 +116,31 @@ def short(id_):
     return id_[:8]
 
 
+# ---------- categories ----------
+CATEGORIES = ["工作", "运动", "生活"]
+CATEGORY_ALIASES = {
+    "work": "工作", "job": "工作", "工作": "工作",
+    "sport": "运动", "exercise": "运动", "fitness": "运动", "workout": "运动", "运动": "运动",
+    "life": "生活", "personal": "生活", "生活": "生活",
+}
+
+
+def norm_category(s):
+    if not s:
+        return None
+    return CATEGORY_ALIASES.get(s.strip().lower(), s.strip())
+
+
+def group_by_category(rows):
+    order = CATEGORIES + ["其他"]
+    buckets = {}
+    for r in rows:
+        buckets.setdefault(r.get("category") or "其他", []).append(r)
+    out = [(c, buckets[c]) for c in order if c in buckets]
+    out += [(c, items) for c, items in buckets.items() if c not in order]
+    return out
+
+
 # ---------- tasks ----------
 def fetch_tasks(include_done=False):
     params = {"select": "*", "order": "due_date.asc.nullslast,created_at.asc"}
@@ -148,9 +173,13 @@ def cmd_task_add(a):
         body["due_date"] = parse_due(a.due)
     if a.notes:
         body["notes"] = a.notes
+    cat = norm_category(a.category)
+    if cat:
+        body["category"] = cat
     r = rest("POST", "tasks", body=body)[0]
     due = f" (due {r['due_date']})" if r.get("due_date") else ""
-    print(f"✅ Added: {r['title']}{due}  [{short(r['id'])}]")
+    tag = f"[{r['category']}] " if r.get("category") else ""
+    print(f"✅ Added: {tag}{r['title']}{due}  [{short(r['id'])}]")
 
 
 def cmd_task_list(a):
@@ -158,10 +187,12 @@ def cmd_task_list(a):
     if not rows:
         print("(no tasks)")
         return
-    for r in rows:
-        box = "☑" if r["done"] else "☐"
-        due = f" ⏰{r['due_date']}" if r.get("due_date") else ""
-        print(f"{box} [{short(r['id'])}] {r['title']}{due}")
+    for cat, items in group_by_category(rows):
+        print(f"【{cat}】")
+        for r in items:
+            box = "☑" if r["done"] else "☐"
+            due = f" ⏰{r['due_date']}" if r.get("due_date") else ""
+            print(f"  {box} [{short(r['id'])}] {r['title']}{due}")
 
 
 def cmd_task_done(a):
@@ -176,6 +207,13 @@ def cmd_task_rm(a):
     r = resolve_task(a.ref)
     rest("DELETE", "tasks", params={"id": f"eq.{r['id']}"})
     print(f"🗑 Removed: {r['title']}")
+
+
+def cmd_task_cat(a):
+    r = resolve_task(a.ref)
+    cat = norm_category(a.category)
+    rest("PATCH", "tasks", params={"id": f"eq.{r['id']}"}, body={"category": cat})
+    print(f"🏷 {r['title']} → {cat or '(无)'}")
 
 
 # ---------- routines ----------
@@ -209,6 +247,9 @@ def cmd_routine_add(a):
     body = {"name": a.name, "weekdays": days, "active": True}
     if a.icon:
         body["icon"] = a.icon
+    cat = norm_category(a.category)
+    if cat:
+        body["category"] = cat
     r = rest("POST", "routines", body=body)[0]
     dd = "、".join(WEEKDAY_CN[d] for d in days)
     print(f"✅ Routine added: {r.get('icon') or ''}{r['name']} ({dd})  [{short(r['id'])}]")
@@ -283,9 +324,11 @@ def cmd_today(a):
     todays = [t for t in tasks if not t.get("due_date") or t["due_date"] <= today.isoformat()]
     if not todays:
         print("  (无)")
-    for t in todays:
-        due = f" ⏰{t['due_date']}" if t.get("due_date") else ""
-        print(f"  ☐ [{short(t['id'])}] {t['title']}{due}")
+    for cat, items in group_by_category(todays):
+        print(f"  【{cat}】")
+        for t in items:
+            due = f" ⏰{t['due_date']}" if t.get("due_date") else ""
+            print(f"    ☐ [{short(t['id'])}] {t['title']}{due}")
     print("── 今日 routine ──")
     routines = [r for r in fetch_routines(active_only=True) if iso in r["weekdays"]]
     if not routines:
@@ -306,14 +349,15 @@ def main():
 
     pt = sub.add_parser("task")
     ts = pt.add_subparsers(dest="sub")
-    a = ts.add_parser("add"); a.add_argument("title"); a.add_argument("--due"); a.add_argument("--notes"); a.set_defaults(func=cmd_task_add)
+    a = ts.add_parser("add"); a.add_argument("title"); a.add_argument("--due"); a.add_argument("--notes"); a.add_argument("--category", "-c"); a.set_defaults(func=cmd_task_add)
     a = ts.add_parser("list"); a.add_argument("--all", action="store_true"); a.set_defaults(func=cmd_task_list)
+    a = ts.add_parser("cat"); a.add_argument("ref"); a.add_argument("category"); a.set_defaults(func=cmd_task_cat)
     a = ts.add_parser("done"); a.add_argument("ref"); a.set_defaults(func=cmd_task_done)
     a = ts.add_parser("rm"); a.add_argument("ref"); a.set_defaults(func=cmd_task_rm)
 
     pr = sub.add_parser("routine")
     rs = pr.add_subparsers(dest="sub")
-    a = rs.add_parser("add"); a.add_argument("name"); a.add_argument("--days", required=True); a.add_argument("--icon"); a.set_defaults(func=cmd_routine_add)
+    a = rs.add_parser("add"); a.add_argument("name"); a.add_argument("--days", required=True); a.add_argument("--icon"); a.add_argument("--category", "-c"); a.set_defaults(func=cmd_routine_add)
     a = rs.add_parser("list"); a.add_argument("--all", action="store_true"); a.set_defaults(func=cmd_routine_list)
     a = rs.add_parser("rm"); a.add_argument("ref"); a.set_defaults(func=cmd_routine_rm)
     a = rs.add_parser("log"); a.add_argument("ref"); a.add_argument("--date"); a.add_argument("--undo", action="store_true"); a.set_defaults(func=cmd_routine_log)

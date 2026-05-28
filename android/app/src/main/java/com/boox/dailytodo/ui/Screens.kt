@@ -50,29 +50,41 @@ fun TodayScreen(vm: MainViewModel) {
         if (vm.tasks.isEmpty()) {
             Text("今天没有待办 🎉", fontSize = 16.sp)
         } else {
-            vm.tasks.forEach { t ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .noRippleClickable { vm.toggleTask(t) }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(if (t.done) "☑" else "☐", fontSize = 26.sp)
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(t.title, fontSize = 18.sp)
-                        t.dueDate?.let { due ->
-                            val overdue = due < todayStr
-                            Text(
-                                (if (overdue) "⚠ 逾期 " else "⏰ ") + due,
-                                fontSize = 13.sp,
-                                fontWeight = if (overdue) FontWeight.Bold else FontWeight.Normal
-                            )
+            val order = listOf("工作", "运动", "生活")
+            val grouped = vm.tasks.groupBy { it.category ?: "其他" }
+            val cats = order.filter { grouped.containsKey(it) } +
+                grouped.keys.filter { it !in order }
+            cats.forEach { cat ->
+                Text(
+                    cat,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+                )
+                grouped.getValue(cat).forEach { t ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .noRippleClickable { vm.toggleTask(t) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(if (t.done) "☑" else "☐", fontSize = 26.sp)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(t.title, fontSize = 18.sp)
+                            t.dueDate?.let { due ->
+                                val overdue = due < todayStr
+                                Text(
+                                    (if (overdue) "⚠ 逾期 " else "⏰ ") + due,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (overdue) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         }
                     }
+                    HorizontalDivider(color = Color.Black, thickness = 1.dp)
                 }
-                HorizontalDivider(color = Color.Black, thickness = 1.dp)
             }
         }
 
