@@ -9,8 +9,10 @@ data class Task(
     val title: String,
     val notes: String? = null,
     val done: Boolean = false,
+    val memo: Boolean = false,       // true = 备忘录, 不进今日待办
     @SerialName("due_date") val dueDate: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
     val category: String? = null,   // 工作 | 运动 | 生活
 )
 

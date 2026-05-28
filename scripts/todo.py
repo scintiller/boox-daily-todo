@@ -116,6 +116,16 @@ def short(id_):
     return id_[:8]
 
 
+def local_dt(iso):
+    """Parse a Postgres timestamptz into local time (or None)."""
+    if not iso:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone()
+    except ValueError:
+        return None
+
+
 # ---------- categories ----------
 CATEGORIES = ["工作", "运动", "生活"]
 CATEGORY_ALIASES = {
@@ -176,10 +186,13 @@ def cmd_task_add(a):
     cat = norm_category(a.category)
     if cat:
         body["category"] = cat
+    if getattr(a, "memo", False):
+        body["memo"] = True
     r = rest("POST", "tasks", body=body)[0]
     due = f" (due {r['due_date']})" if r.get("due_date") else ""
     tag = f"[{r['category']}] " if r.get("category") else ""
-    print(f"✅ Added: {tag}{r['title']}{due}  [{short(r['id'])}]")
+    kind = "📝 Memo added" if r.get("memo") else "✅ Added"
+    print(f"{kind}: {tag}{r['title']}{due}  [{short(r['id'])}]")
 
 
 def cmd_task_list(a):
@@ -271,6 +284,14 @@ def cmd_routine_rm(a):
     print(f"🗑 Routine removed: {r['name']}")
 
 
+def cmd_routine_days(a):
+    r = resolve_routine(a.ref)
+    days = parse_days(a.days)
+    rest("PATCH", "routines", params={"id": f"eq.{r['id']}"}, body={"weekdays": days})
+    dd = "、".join(WEEKDAY_CN[d] for d in days)
+    print(f"📅 {r.get('icon') or ''}{r['name']} → {dd}")
+
+
 def cmd_routine_log(a):
     r = resolve_routine(a.ref)
     date = parse_due(a.date) if a.date else datetime.date.today().isoformat()
@@ -317,11 +338,18 @@ def cmd_routine_stats(a):
 
 def cmd_today(a):
     today = datetime.date.today()
+    yesterday = today - datetime.timedelta(days=1)
     iso = today.isoweekday()
-    print(f"📅 {today.isoformat()} {WEEKDAY_CN[iso]}")
+    todayiso = today.isoformat()
+    print(f"📅 {todayiso} {WEEKDAY_CN[iso]}")
+
+    all_tasks = fetch_tasks(include_done=True)
+
+    # 今日待办: 未完成、非备忘、无截止或已到期
     print("── 今日待办 ──")
-    tasks = fetch_tasks(include_done=False)
-    todays = [t for t in tasks if not t.get("due_date") or t["due_date"] <= today.isoformat()]
+    todays = [t for t in all_tasks
+              if not t["done"] and not t.get("memo")
+              and (not t.get("due_date") or t["due_date"] <= todayiso)]
     if not todays:
         print("  (无)")
     for cat, items in group_by_category(todays):
@@ -329,16 +357,40 @@ def cmd_today(a):
         for t in items:
             due = f" ⏰{t['due_date']}" if t.get("due_date") else ""
             print(f"    ☐ [{short(t['id'])}] {t['title']}{due}")
+
+    # 今日 routine
     print("── 今日 routine ──")
     routines = [r for r in fetch_routines(active_only=True) if iso in r["weekdays"]]
     if not routines:
         print("  (今天无)")
-        return
-    logs = rest("GET", "routine_logs", {"select": "*", "date": f"eq.{today.isoformat()}"})
-    done_ids = {l["routine_id"] for l in logs if l["done"]}
-    for r in routines:
-        mark = "✔" if r["id"] in done_ids else "☐"
-        print(f"  {mark} {r.get('icon') or ''}{r['name']}")
+    else:
+        logs = rest("GET", "routine_logs", {"select": "*", "date": f"eq.{todayiso}"})
+        done_ids = {l["routine_id"] for l in logs if l["done"]}
+        for r in routines:
+            mark = "✔" if r["id"] in done_ids else "☐"
+            print(f"  {mark} {r.get('icon') or ''}{r['name']}")
+
+    # 已完成 (今天 / 昨天)，时间按勾选完成的时刻
+    done_recent = []
+    for t in all_tasks:
+        dt = local_dt(t.get("completed_at")) if t["done"] else None
+        if dt and dt.date() in (today, yesterday):
+            done_recent.append((dt, t))
+    if done_recent:
+        print("── 已完成 ──")
+        for label, d in (("今天", today), ("昨天", yesterday)):
+            items = sorted((x for x in done_recent if x[0].date() == d), key=lambda x: x[0], reverse=True)
+            if items:
+                print(f"  {label}")
+                for dt, t in items:
+                    print(f"    ☑ {dt.strftime('%H:%M')} {t['title']}")
+
+    # 备忘录
+    memos = [t for t in all_tasks if t.get("memo") and not t["done"]]
+    if memos:
+        print("── 备忘录 ──")
+        for t in memos:
+            print(f"  ☐ [{short(t['id'])}] {t['title']}")
 
 
 def main():
@@ -349,7 +401,7 @@ def main():
 
     pt = sub.add_parser("task")
     ts = pt.add_subparsers(dest="sub")
-    a = ts.add_parser("add"); a.add_argument("title"); a.add_argument("--due"); a.add_argument("--notes"); a.add_argument("--category", "-c"); a.set_defaults(func=cmd_task_add)
+    a = ts.add_parser("add"); a.add_argument("title"); a.add_argument("--due"); a.add_argument("--notes"); a.add_argument("--category", "-c"); a.add_argument("--memo", action="store_true"); a.set_defaults(func=cmd_task_add)
     a = ts.add_parser("list"); a.add_argument("--all", action="store_true"); a.set_defaults(func=cmd_task_list)
     a = ts.add_parser("cat"); a.add_argument("ref"); a.add_argument("category"); a.set_defaults(func=cmd_task_cat)
     a = ts.add_parser("done"); a.add_argument("ref"); a.set_defaults(func=cmd_task_done)
@@ -360,6 +412,7 @@ def main():
     a = rs.add_parser("add"); a.add_argument("name"); a.add_argument("--days", required=True); a.add_argument("--icon"); a.add_argument("--category", "-c"); a.set_defaults(func=cmd_routine_add)
     a = rs.add_parser("list"); a.add_argument("--all", action="store_true"); a.set_defaults(func=cmd_routine_list)
     a = rs.add_parser("rm"); a.add_argument("ref"); a.set_defaults(func=cmd_routine_rm)
+    a = rs.add_parser("days"); a.add_argument("ref"); a.add_argument("days"); a.set_defaults(func=cmd_routine_days)
     a = rs.add_parser("log"); a.add_argument("ref"); a.add_argument("--date"); a.add_argument("--undo", action="store_true"); a.set_defaults(func=cmd_routine_log)
     a = rs.add_parser("stats"); a.add_argument("--weeks", type=int, default=8); a.set_defaults(func=cmd_routine_stats)
 

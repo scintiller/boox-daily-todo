@@ -27,12 +27,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boox.dailytodo.MainViewModel
 import com.boox.dailytodo.Routine
+import com.boox.dailytodo.Task
 import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private val WEEKDAY_CN = mapOf(1 to "周一", 2 to "周二", 3 to "周三", 4 to "周四", 5 to "周五", 6 to "周六", 7 to "周日")
 
 fun weekdaysLabel(days: List<Int>): String =
     days.sorted().joinToString("、") { WEEKDAY_CN[it] ?: "?" }
+
+private val HHMM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/** Parse a Postgres timestamptz (e.g. 2026-05-28T18:32:00+00:00) into the device's local zone. */
+private fun completedZdt(iso: String?) =
+    iso?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ZoneId.systemDefault()) }.getOrNull() }
 
 @Composable
 fun TodayScreen(vm: MainViewModel) {
@@ -45,13 +55,14 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        val pending = vm.tasks.filter { !it.done && !it.memo }
         Text("待办", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        if (vm.tasks.isEmpty()) {
+        if (pending.isEmpty()) {
             Text("今天没有待办 🎉", fontSize = 16.sp)
         } else {
             val order = listOf("工作", "运动", "生活")
-            val grouped = vm.tasks.groupBy { it.category ?: "其他" }
+            val grouped = pending.groupBy { it.category ?: "其他" }
             val cats = order.filter { grouped.containsKey(it) } +
                 grouped.keys.filter { it !in order }
             cats.forEach { cat ->
@@ -107,6 +118,80 @@ fun TodayScreen(vm: MainViewModel) {
                     Text(if (done) "✔" else "☐", fontSize = 26.sp)
                     Spacer(Modifier.width(12.dp))
                     Text("${r.icon ?: ""}${r.name}", fontSize = 18.sp)
+                }
+                HorizontalDivider(color = Color.Black, thickness = 1.dp)
+            }
+        }
+
+        // ── 已完成 (今天 / 昨天)，时间按勾选完成的时刻 ──
+        val yesterday = today.minusDays(1)
+        val doneItems = vm.tasks
+            .filter { it.done }
+            .mapNotNull { t -> completedZdt(t.completedAt)?.let { it to t } }
+        if (doneItems.any { (zdt, _) -> zdt.toLocalDate() == today || zdt.toLocalDate() == yesterday }) {
+            Spacer(Modifier.height(28.dp))
+            Text("已完成", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            listOf("今天" to today, "昨天" to yesterday).forEach { (label, date) ->
+                val items = doneItems
+                    .filter { (zdt, _) -> zdt.toLocalDate() == date }
+                    .sortedByDescending { (zdt, _) -> zdt }
+                if (items.isNotEmpty()) {
+                    Text(
+                        label,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+                    )
+                    items.forEach { (zdt, t) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .noRippleClickable { vm.toggleTask(t) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("☑", fontSize = 26.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(t.title, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                            Text(zdt.format(HHMM), fontSize = 14.sp)
+                        }
+                        HorizontalDivider(color = Color.Black, thickness = 1.dp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MemoScreen(vm: MainViewModel) {
+    val memos = vm.tasks.filter { it.memo && !it.done }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("备忘录", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        if (memos.isEmpty()) {
+            Text("还没有备忘 📝", fontSize = 16.sp)
+        } else {
+            memos.forEach { t ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .noRippleClickable { vm.toggleTask(t) }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("☐", fontSize = 26.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(t.title, fontSize = 18.sp)
+                        t.category?.let { Text(it, fontSize = 13.sp) }
+                    }
                 }
                 HorizontalDivider(color = Color.Black, thickness = 1.dp)
             }

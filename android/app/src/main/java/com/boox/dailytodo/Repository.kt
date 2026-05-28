@@ -44,7 +44,11 @@ class Repository {
     }
 
     suspend fun getTasks(): List<Task> = withContext(Dispatchers.IO) {
-        val url = base + "tasks?select=*&done=is.false&order=due_date.asc.nullslast,created_at.asc"
+        // Pending tasks (done=false, incl. memos) OR anything completed in the last 3 days,
+        // so the 已完成 section can show today's / yesterday's checked-off items.
+        val cutoff = Instant.now().minusSeconds(3 * 24 * 3600)
+        val url = base + "tasks?select=*&or=(done.is.false,completed_at.gte.$cutoff)" +
+            "&order=due_date.asc.nullslast,created_at.asc"
         json.decodeFromString(exec(request(url, "GET")))
     }
 

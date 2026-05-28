@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boox.dailytodo.ui.DailyTodoTheme
+import com.boox.dailytodo.ui.MemoScreen
 import com.boox.dailytodo.ui.StatsScreen
 import com.boox.dailytodo.ui.TodayScreen
 import com.boox.dailytodo.ui.noRippleClickable
@@ -81,6 +82,7 @@ fun AppRoot(vm: MainViewModel) {
         Row(Modifier.fillMaxWidth()) {
             TabButton("今日", tab == 0, Modifier.weight(1f)) { tab = 0 }
             TabButton("坚持度", tab == 1, Modifier.weight(1f)) { tab = 1 }
+            TabButton("备忘", tab == 2, Modifier.weight(1f)) { tab = 2 }
         }
         HorizontalDivider(color = Color.Black, thickness = 2.dp)
 
@@ -92,6 +94,7 @@ fun AppRoot(vm: MainViewModel) {
             when (tab) {
                 0 -> TodayScreen(vm)
                 1 -> StatsScreen(vm)
+                2 -> MemoScreen(vm)
             }
         }
     }
