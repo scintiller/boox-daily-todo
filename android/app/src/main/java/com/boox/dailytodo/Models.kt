@@ -24,6 +24,7 @@ data class Routine(
     val weekdays: List<Int> = emptyList(), // ISO weekday: 1=Mon .. 7=Sun
     val active: Boolean = true,
     val category: String? = null,   // 工作 | 运动 | 生活
+    @SerialName("created_at") val createdAt: String? = null,
 )
 
 @Serializable

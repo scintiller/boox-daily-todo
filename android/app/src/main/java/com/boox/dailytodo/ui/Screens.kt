@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -207,11 +209,28 @@ fun MemoScreen(vm: MainViewModel) {
     }
 }
 
+private enum class HeatState { MET, MISS, BLANK }
+
+private val WD_SHORT = mapOf(1 to "一", 2 to "二", 3 to "三", 4 to "四", 5 to "五", 6 to "六", 7 to "日")
+
+@Composable
+private fun HeatCell(state: HeatState, dim: androidx.compose.ui.unit.Dp) {
+    val m = Modifier.size(dim)
+    when (state) {
+        HeatState.MET -> Box(m.background(Color.Black, RoundedCornerShape(5.dp)))
+        HeatState.MISS -> Box(m.border(1.5.dp, Color.Black, RoundedCornerShape(5.dp)))
+        HeatState.BLANK -> Box(m.border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(5.dp)))
+    }
+}
+
 @Composable
 fun StatsScreen(vm: MainViewModel) {
     val weeks = 8
     val today = LocalDate.now()
-    val start = today.minusWeeks(weeks.toLong())
+    val thisMonday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val weekStarts = (weeks - 1 downTo 0).map { thisMonday.minusWeeks(it.toLong()) } // 旧 → 新
+    val cell = 30.dp
+    val gap = 6.dp
 
     Column(
         Modifier
@@ -220,45 +239,88 @@ fun StatsScreen(vm: MainViewModel) {
             .padding(16.dp)
     ) {
         Text("坚持度（最近 $weeks 周）", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(4.dp))
-        Text("■ = 完成   □ = 漏掉", fontSize = 13.sp)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HeatCell(HeatState.MET, 16.dp); Spacer(Modifier.width(6.dp))
+            Text("达成", fontSize = 13.sp); Spacer(Modifier.width(18.dp))
+            HeatCell(HeatState.MISS, 16.dp); Spacer(Modifier.width(6.dp))
+            Text("漏掉", fontSize = 13.sp); Spacer(Modifier.width(18.dp))
+            Text("每格一周 · 左旧右新", fontSize = 13.sp)
+        }
 
         if (vm.routines.isEmpty()) {
+            Spacer(Modifier.height(16.dp))
             Text("还没有 routine，先在 Claude 里添加吧", fontSize = 16.sp)
             return@Column
         }
 
         vm.routines.forEach { r ->
-            val scheduled = ArrayList<LocalDate>()
-            var d = start
-            while (!d.isAfter(today)) {
-                if (r.weekdays.contains(d.dayOfWeek.value)) scheduled.add(d)
-                d = d.plusDays(1)
-            }
             val doneDates = vm.logs.filter { it.routineId == r.id && it.done }.map { it.date }.toSet()
-            val doneCount = scheduled.count { doneDates.contains(it.toString()) }
-            val pct = if (scheduled.isNotEmpty()) doneCount * 100 / scheduled.size else 0
+            val createdDate = completedZdt(r.createdAt)?.toLocalDate()
+            val days = r.weekdays.sorted()
 
-            Spacer(Modifier.height(16.dp))
+            fun stateOf(date: LocalDate): HeatState = when {
+                date.isAfter(today) -> HeatState.BLANK
+                createdDate != null && date.isBefore(createdDate) -> HeatState.BLANK
+                doneDates.contains(date.toString()) -> HeatState.MET
+                else -> HeatState.MISS
+            }
+
+            // 统计 (只算已发生且 routine 已存在的格子)
+            val counted = weekStarts.flatMap { ws -> days.map { ws.plusDays((it - 1).toLong()) } }
+                .map { stateOf(it) }
+                .filter { it != HeatState.BLANK }
+            val total = counted.size
+            val met = counted.count { it == HeatState.MET }
+            val pct = if (total > 0) met * 100 / total else 0
+            // 连续达成 (从最近一次排程往回数)
+            val streak = weekStarts.flatMap { ws -> days.map { ws.plusDays((it - 1).toLong()) } }
+                .filter { !it.isAfter(today) && (createdDate == null || !it.isBefore(createdDate)) }
+                .sortedDescending()
+                .takeWhile { doneDates.contains(it.toString()) }
+                .count()
+
+            Spacer(Modifier.height(18.dp))
+            HorizontalDivider(color = Color.Black, thickness = 1.dp)
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    "${r.icon ?: ""}${r.name}",
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("$pct%", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(10.dp))
+                Text("$met/$total 次", fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(2.dp))
             Text(
-                "${r.icon ?: ""}${r.name}  ($doneCount/${scheduled.size}, $pct%)  —  ${weekdaysLabel(r.weekdays)}",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold
+                weekdaysLabel(r.weekdays) + if (streak > 0) "   ·   🔥 连续达成 $streak 次" else "",
+                fontSize = 13.sp
             )
-            Spacer(Modifier.height(6.dp))
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            Spacer(Modifier.height(8.dp))
+            // 进度条
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .border(1.dp, Color.Black)
             ) {
-                scheduled.forEach { day ->
-                    val ok = doneDates.contains(day.toString())
-                    Box(
-                        Modifier
-                            .size(24.dp)
-                            .border(1.dp, Color.Black)
-                            .background(if (ok) Color.Black else Color.White)
-                    )
+                Box(Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color.Black))
+            }
+            Spacer(Modifier.height(14.dp))
+            // 周历热力图: 行 = 排程的星期, 列 = 周
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                days.forEach { wd ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(gap)
+                    ) {
+                        Text(WD_SHORT[wd] ?: "?", fontSize = 13.sp, modifier = Modifier.width(20.dp))
+                        weekStarts.forEach { ws ->
+                            HeatCell(stateOf(ws.plusDays((wd - 1).toLong())), cell)
+                        }
+                    }
                 }
             }
         }
