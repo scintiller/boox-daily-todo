@@ -34,3 +34,13 @@ data class RoutineLog(
     val date: String,        // YYYY-MM-DD
     val done: Boolean = true,
 )
+
+/** One day of forecast (from Open-Meteo). */
+data class DayWeather(
+    val date: String,      // YYYY-MM-DD
+    val code: Int,         // WMO weather code
+    val tMax: Int,         // °F
+    val tMin: Int,         // °F
+    val precip: Double,    // mm
+    val precipProb: Int,   // %
+)

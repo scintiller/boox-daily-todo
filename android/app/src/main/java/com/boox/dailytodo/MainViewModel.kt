@@ -19,6 +19,8 @@ class MainViewModel : ViewModel() {
         private set
     var logs by mutableStateOf<List<RoutineLog>>(emptyList())
         private set
+    var weather by mutableStateOf<List<DayWeather>>(emptyList())
+        private set
     var loading by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
@@ -48,6 +50,12 @@ class MainViewModel : ViewModel() {
             } finally {
                 loading = false
             }
+        }
+        // Weather fetched separately so a weather hiccup never blanks the tasks.
+        viewModelScope.launch {
+            try {
+                weather = repo.getWeather()
+            } catch (_: Exception) { /* ignore weather errors */ }
         }
     }
 

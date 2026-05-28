@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.boox.dailytodo.DayWeather
 import com.boox.dailytodo.MainViewModel
 import com.boox.dailytodo.Routine
 import com.boox.dailytodo.Task
@@ -46,6 +47,74 @@ private val HHMM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private fun completedZdt(iso: String?) =
     iso?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ZoneId.systemDefault()) }.getOrNull() }
 
+// ---------- weather (WMO code -> emoji + 中文) ----------
+private fun weatherInfo(code: Int): Pair<String, String> = when (code) {
+    0 -> "☀️" to "晴"
+    1, 2 -> "🌤" to "多云"
+    3 -> "☁️" to "阴"
+    45, 48 -> "🌫" to "雾"
+    in 51..57 -> "🌦" to "毛毛雨"
+    61, 63 -> "🌧" to "小雨"
+    65 -> "🌧" to "大雨"
+    66, 67 -> "🌧" to "冻雨"
+    in 71..77 -> "🌨" to "雪"
+    80, 81 -> "🌦" to "阵雨"
+    82 -> "⛈" to "强阵雨"
+    85, 86 -> "🌨" to "阵雪"
+    95 -> "⛈" to "雷暴"
+    96, 99 -> "⛈" to "雷暴冰雹"
+    else -> "❓" to "—"
+}
+
+/** Heavy downpour / storm worth warning about. */
+private fun isHeavyRain(w: DayWeather): Boolean =
+    w.code in setOf(65, 82, 95, 96, 99) || w.precip >= 20.0
+
+@Composable
+fun WeatherStrip(days: List<DayWeather>) {
+    if (days.isEmpty()) return
+    val labels = listOf("今天", "明天", "后天")
+    val alert = days.take(3).withIndex().firstOrNull { isHeavyRain(it.value) }
+
+    alert?.let { (i, w) ->
+        val (_, label) = weatherInfo(w.code)
+        val mm = if (w.precip >= 1.0) "，预计降水 ${w.precip.toInt()}mm" else ""
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .border(3.dp, Color.Black)
+                .padding(12.dp)
+        ) {
+            Text(
+                "⚠️ 大暴雨预警：${labels.getOrElse(i) { "近期" }}有$label$mm，记得带伞 ☔",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
+    Row(Modifier.fillMaxWidth()) {
+        days.take(3).forEachIndexed { i, w ->
+            val (emoji, label) = weatherInfo(w.code)
+            Column(
+                Modifier.weight(1f).padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(labels.getOrElse(i) { "" }, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                Text(emoji, fontSize = 30.sp)
+                Text(label, fontSize = 14.sp)
+                Text("${w.tMax}° / ${w.tMin}°", fontSize = 15.sp)
+                if (w.precipProb > 0) Text("💧 ${w.precipProb}%", fontSize = 12.sp)
+            }
+        }
+    }
+    Spacer(Modifier.height(20.dp))
+    HorizontalDivider(color = Color.Black, thickness = 1.dp)
+    Spacer(Modifier.height(16.dp))
+}
+
 @Composable
 fun TodayScreen(vm: MainViewModel) {
     val today = LocalDate.now()
@@ -57,6 +126,7 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        WeatherStrip(vm.weather)
         // 今日待办: 未完成、非备忘、无到期日或已到期 (未来日期的任务等到当天才出现)
         val pending = vm.tasks.filter {
             !it.done && !it.memo && (it.dueDate == null || it.dueDate <= todayStr)
