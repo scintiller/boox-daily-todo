@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,7 +31,10 @@ import com.boox.dailytodo.ui.DailyTodoTheme
 import com.boox.dailytodo.ui.MemoScreen
 import com.boox.dailytodo.ui.StatsScreen
 import com.boox.dailytodo.ui.TodayScreen
+import com.boox.dailytodo.ui.WeatherAlert
+import com.boox.dailytodo.ui.WeatherDetail
 import com.boox.dailytodo.ui.noRippleClickable
+import com.boox.dailytodo.ui.todayWeatherSummary
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
@@ -59,24 +63,41 @@ private val WEEKDAY_CN = mapOf(1 to "周一", 2 to "周二", 3 to "周三", 4 to
 @Composable
 fun AppRoot(vm: MainViewModel) {
     var tab by remember { mutableIntStateOf(0) }
+    var weatherExpanded by remember { mutableStateOf(false) }
     val today = LocalDate.now()
     val header = "${today} ${WEEKDAY_CN[today.dayOfWeek.value]}"
 
     Column(Modifier.fillMaxSize()) {
-        // Header: date + manual refresh
+        // Header: date + today's weather (tap to expand 3-day) + manual refresh
+        val wx = todayWeatherSummary(vm.weather)
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(header, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .noRippleClickable { if (wx != null) weatherExpanded = !weatherExpanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(header, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                if (wx != null) {
+                    Text("   $wx", fontSize = 16.sp)
+                    Text(if (weatherExpanded) "  ▾" else "  ▸", fontSize = 16.sp)
+                }
+            }
             Text(
                 if (vm.loading) "刷新中…" else "↻ 刷新",
                 fontSize = 16.sp,
                 modifier = Modifier.noRippleClickable { vm.refresh() }
             )
         }
+
+        // Weather: storm alert always shows; 3-day detail only when expanded
+        WeatherAlert(vm.weather)
+        if (weatherExpanded) WeatherDetail(vm.weather)
 
         // Tabs
         Row(Modifier.fillMaxWidth()) {

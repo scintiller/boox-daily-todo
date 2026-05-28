@@ -70,31 +70,42 @@ private fun weatherInfo(code: Int): Pair<String, String> = when (code) {
 private fun isHeavyRain(w: DayWeather): Boolean =
     w.code in setOf(65, 82, 95, 96, 99) || w.precip >= 20.0
 
+/** Short inline summary of today's weather for the date header, e.g. "☁️阴 32°/20°". */
+fun todayWeatherSummary(days: List<DayWeather>): String? {
+    val w = days.firstOrNull() ?: return null
+    val (emoji, label) = weatherInfo(w.code)
+    return "$emoji$label ${w.tMax}°/${w.tMin}°"
+}
+
+/** Heavy-rain banner — always shown when a storm is forecast, regardless of expand state. */
 @Composable
-fun WeatherStrip(days: List<DayWeather>) {
+fun WeatherAlert(days: List<DayWeather>) {
+    val labels = listOf("今天", "明天", "后天")
+    val (i, w) = days.take(3).withIndex().firstOrNull { isHeavyRain(it.value) } ?: return
+    val (_, label) = weatherInfo(w.code)
+    val mm = if (w.precip >= 1.0) "，预计降水 ${w.precip.toInt()}mm" else ""
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .border(3.dp, Color.Black)
+            .padding(12.dp)
+    ) {
+        Text(
+            "⚠️ 大暴雨预警：${labels.getOrElse(i) { "近期" }}有$label$mm，记得带伞 ☔",
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+    Spacer(Modifier.height(8.dp))
+}
+
+/** Expandable 3-day forecast detail (今天/明天/后天). */
+@Composable
+fun WeatherDetail(days: List<DayWeather>) {
     if (days.isEmpty()) return
     val labels = listOf("今天", "明天", "后天")
-    val alert = days.take(3).withIndex().firstOrNull { isHeavyRain(it.value) }
-
-    alert?.let { (i, w) ->
-        val (_, label) = weatherInfo(w.code)
-        val mm = if (w.precip >= 1.0) "，预计降水 ${w.precip.toInt()}mm" else ""
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .border(3.dp, Color.Black)
-                .padding(12.dp)
-        ) {
-            Text(
-                "⚠️ 大暴雨预警：${labels.getOrElse(i) { "近期" }}有$label$mm，记得带伞 ☔",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-    }
-
-    Row(Modifier.fillMaxWidth()) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         days.take(3).forEachIndexed { i, w ->
             val (emoji, label) = weatherInfo(w.code)
             Column(
@@ -110,9 +121,7 @@ fun WeatherStrip(days: List<DayWeather>) {
             }
         }
     }
-    Spacer(Modifier.height(20.dp))
-    HorizontalDivider(color = Color.Black, thickness = 1.dp)
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(8.dp))
 }
 
 @Composable
@@ -126,7 +135,6 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        WeatherStrip(vm.weather)
         // 今日待办: 未完成、非备忘、无到期日或已到期 (未来日期的任务等到当天才出现)
         val pending = vm.tasks.filter {
             !it.done && !it.memo && (it.dueDate == null || it.dueDate <= todayStr)

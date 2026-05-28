@@ -95,7 +95,7 @@ class Repository {
             "&daily=weather_code,temperature_2m_max,temperature_2m_min," +
             "precipitation_sum,precipitation_probability_max" +
             "&timezone=America%2FPhoenix&forecast_days=3" +
-            "&temperature_unit=fahrenheit&precipitation_unit=mm"
+            "&temperature_unit=celsius&precipitation_unit=mm"
         val req = Request.Builder().url(url).header("Accept", "application/json").get().build()
         val d = json.decodeFromString<WeatherResponse>(exec(req)).daily
         d.time.indices.map { i ->

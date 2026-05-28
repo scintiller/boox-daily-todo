@@ -39,8 +39,8 @@ data class RoutineLog(
 data class DayWeather(
     val date: String,      // YYYY-MM-DD
     val code: Int,         // WMO weather code
-    val tMax: Int,         // °F
-    val tMin: Int,         // °F
+    val tMax: Int,         // °C
+    val tMin: Int,         // °C
     val precip: Double,    // mm
     val precipProb: Int,   // %
 )
