@@ -385,12 +385,15 @@ def cmd_today(a):
                 for dt, t in items:
                     print(f"    ☑ {dt.strftime('%H:%M')} {t['title']}")
 
-    # 备忘录
-    memos = [t for t in all_tasks if t.get("memo") and not t["done"]]
-    if memos:
+    # 备忘录 = 备忘事项 + 未来日期的待办 (今天还没到的事)
+    later = [t for t in all_tasks
+             if not t["done"] and (t.get("memo") or (t.get("due_date") and t["due_date"] > todayiso))]
+    if later:
+        later.sort(key=lambda t: (t.get("due_date") is None, t.get("due_date") or ""))
         print("── 备忘录 ──")
-        for t in memos:
-            print(f"  ☐ [{short(t['id'])}] {t['title']}")
+        for t in later:
+            due = f" ⏰{t['due_date']}" if t.get("due_date") else ""
+            print(f"  ☐ [{short(t['id'])}] {t['title']}{due}")
 
 
 def main():

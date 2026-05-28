@@ -169,7 +169,11 @@ fun TodayScreen(vm: MainViewModel) {
 
 @Composable
 fun MemoScreen(vm: MainViewModel) {
-    val memos = vm.tasks.filter { it.memo && !it.done }
+    val todayStr = LocalDate.now().toString()
+    // 备忘事项 + 未来日期的待办 (今天还没到的事)，到期当天会回到「今日」
+    val items = vm.tasks
+        .filter { !it.done && (it.memo || (it.dueDate != null && it.dueDate > todayStr)) }
+        .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate }))
     Column(
         Modifier
             .fillMaxSize()
@@ -178,10 +182,10 @@ fun MemoScreen(vm: MainViewModel) {
     ) {
         Text("备忘录", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        if (memos.isEmpty()) {
+        if (items.isEmpty()) {
             Text("还没有备忘 📝", fontSize = 16.sp)
         } else {
-            memos.forEach { t ->
+            items.forEach { t ->
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -193,7 +197,8 @@ fun MemoScreen(vm: MainViewModel) {
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(t.title, fontSize = 18.sp)
-                        t.category?.let { Text(it, fontSize = 13.sp) }
+                        val sub = t.dueDate?.let { "⏰ $it" } ?: t.category
+                        sub?.let { Text(it, fontSize = 13.sp) }
                     }
                 }
                 HorizontalDivider(color = Color.Black, thickness = 1.dp)
