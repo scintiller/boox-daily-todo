@@ -55,7 +55,10 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        val pending = vm.tasks.filter { !it.done && !it.memo }
+        // 今日待办: 未完成、非备忘、无到期日或已到期 (未来日期的任务等到当天才出现)
+        val pending = vm.tasks.filter {
+            !it.done && !it.memo && (it.dueDate == null || it.dueDate <= todayStr)
+        }
         Text("待办", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         if (pending.isEmpty()) {
