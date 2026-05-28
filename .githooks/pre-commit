@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Refresh app screenshots before each commit, then stage them so the README
+# screenshots stay current. No-op (never blocks the commit) if no Boox is
+# connected over USB.
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+bash "$ROOT/scripts/capture_screenshots.sh" || true
+git add "$ROOT/docs/screenshots/"*.png 2>/dev/null || true
