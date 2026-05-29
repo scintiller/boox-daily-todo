@@ -20,6 +20,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -190,7 +194,11 @@ fun TodayScreen(vm: MainViewModel) {
         Spacer(Modifier.height(28.dp))
         Text("今日 Routine", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        val todays = vm.routines.filter { it.weekdays.contains(today.dayOfWeek.value) }
+        // 今天排了的 routine，外加今天补打卡的(即使不在排期里，比如临时做了复健)
+        val todays = vm.routines.filter { r ->
+            r.weekdays.contains(today.dayOfWeek.value) ||
+                vm.logs.any { it.routineId == r.id && it.date == todayStr && it.done }
+        }
         if (todays.isEmpty()) {
             Text("今天没有安排的 routine", fontSize = 16.sp)
         } else {
@@ -211,16 +219,23 @@ fun TodayScreen(vm: MainViewModel) {
             }
         }
 
-        // ── 已完成 (今天 / 昨天)，时间按勾选完成的时刻 ──
+        // ── 已完成 (今天 / 昨天)，默认折叠，点标题展开 ──
         val yesterday = today.minusDays(1)
         val doneItems = vm.tasks
             .filter { it.done }
             .mapNotNull { t -> completedZdt(t.completedAt)?.let { it to t } }
-        if (doneItems.any { (zdt, _) -> zdt.toLocalDate() == today || zdt.toLocalDate() == yesterday }) {
+            .filter { (zdt, _) -> zdt.toLocalDate() == today || zdt.toLocalDate() == yesterday }
+        if (doneItems.isNotEmpty()) {
+            var doneExpanded by remember { mutableStateOf(false) }
             Spacer(Modifier.height(28.dp))
-            Text("已完成", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            listOf("今天" to today, "昨天" to yesterday).forEach { (label, date) ->
+            Row(
+                Modifier.fillMaxWidth().noRippleClickable { doneExpanded = !doneExpanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("已完成 (${doneItems.size})", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(if (doneExpanded) "  ▾" else "  ▸", fontSize = 18.sp)
+            }
+            if (doneExpanded) listOf("今天" to today, "昨天" to yesterday).forEach { (label, date) ->
                 val items = doneItems
                     .filter { (zdt, _) -> zdt.toLocalDate() == date }
                     .sortedByDescending { (zdt, _) -> zdt }
