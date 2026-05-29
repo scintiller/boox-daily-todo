@@ -92,12 +92,15 @@ class Repository {
         // Open-Meteo: free, no API key. Fixed to Gilbert, AZ.
         val url = "https://api.open-meteo.com/v1/forecast" +
             "?latitude=33.3528&longitude=-111.789" +
+            "&current=temperature_2m" +
             "&daily=weather_code,temperature_2m_max,temperature_2m_min," +
             "precipitation_sum,precipitation_probability_max" +
             "&timezone=America%2FPhoenix&forecast_days=3" +
             "&temperature_unit=celsius&precipitation_unit=mm"
         val req = Request.Builder().url(url).header("Accept", "application/json").get().build()
-        val d = json.decodeFromString<WeatherResponse>(exec(req)).daily
+        val resp = json.decodeFromString<WeatherResponse>(exec(req))
+        val d = resp.daily
+        val cur = resp.current?.temp?.roundToInt()
         d.time.indices.map { i ->
             DayWeather(
                 date = d.time[i],
@@ -106,13 +109,22 @@ class Repository {
                 tMin = d.tMin.getOrElse(i) { 0.0 }.roundToInt(),
                 precip = d.precip.getOrElse(i) { 0.0 },
                 precipProb = d.precipProb.getOrElse(i) { null } ?: 0,
+                currentTemp = if (i == 0) cur else null,
             )
         }
     }
 }
 
 @Serializable
-private data class WeatherResponse(val daily: WeatherDaily)
+private data class WeatherResponse(
+    val daily: WeatherDaily,
+    val current: WeatherCurrent? = null,
+)
+
+@Serializable
+private data class WeatherCurrent(
+    @kotlinx.serialization.SerialName("temperature_2m") val temp: Double? = null,
+)
 
 @Serializable
 private data class WeatherDaily(

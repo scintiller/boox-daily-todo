@@ -2,7 +2,6 @@ package com.boox.dailytodo.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,7 +73,8 @@ private fun isHeavyRain(w: DayWeather): Boolean =
 fun todayWeatherSummary(days: List<DayWeather>): String? {
     val w = days.firstOrNull() ?: return null
     val (emoji, label) = weatherInfo(w.code)
-    return "$emoji$label ${w.tMax}°/${w.tMin}°"
+    return if (w.currentTemp != null) "$emoji$label ${w.currentTemp}° (${w.tMax}°/${w.tMin}°)"
+    else "$emoji$label ${w.tMax}°/${w.tMin}°"
 }
 
 /** Heavy-rain banner — always shown when a storm is forecast, regardless of expand state. */
@@ -116,7 +116,12 @@ fun WeatherDetail(days: List<DayWeather>) {
                 Spacer(Modifier.height(2.dp))
                 Text(emoji, fontSize = 30.sp)
                 Text(label, fontSize = 14.sp)
-                Text("${w.tMax}° / ${w.tMin}°", fontSize = 15.sp)
+                if (w.currentTemp != null) {
+                    Text("${w.currentTemp}°", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("(${w.tMax}°/${w.tMin}°)", fontSize = 13.sp)
+                } else {
+                    Text("${w.tMax}° / ${w.tMin}°", fontSize = 15.sp)
+                }
                 if (w.precipProb > 0) Text("💧 ${w.precipProb}%", fontSize = 12.sp)
             }
         }
