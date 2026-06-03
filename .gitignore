@@ -11,6 +11,13 @@ build/
 *.apk
 *.aab
 
+# ios / xcode
+ios/DailyTodo/Secrets.swift
+ios/build/
+ios/DerivedData/
+**/*.xcuserstate
+**/xcuserdata/
+
 # IDE / OS
 .idea/
 .DS_Store

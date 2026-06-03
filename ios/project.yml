@@ -1,0 +1,33 @@
+name: DailyTodo
+options:
+  bundleIdPrefix: com.yujunzhao
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+targets:
+  DailyTodo:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: DailyTodo
+        excludes:
+          - "Secrets.example.swift"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yujunzhao.dailytodo
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "今日待办"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+    preBuildScripts:
+      - name: Generate Secrets
+        basedOnDependencyAnalysis: false
+        script: |
+          "${SRCROOT}/gen-secrets.sh" || true
