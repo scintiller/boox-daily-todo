@@ -61,6 +61,25 @@ struct RootView: View {
             default: MemoView(store: store)
             }
         }
+        .overlay(alignment: .bottom) {
+            if let t = store.toast {
+                ToastView(text: t)
+            }
+        }
         .onAppear { if store.tasks.isEmpty { store.start() } }
+    }
+}
+
+struct ToastView: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.subheadline).bold()
+            .padding(.horizontal, 18).padding(.vertical, 11)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(Color.primary.opacity(0.15)))
+            .shadow(radius: 6, y: 2)
+            .padding(.bottom, 34)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }

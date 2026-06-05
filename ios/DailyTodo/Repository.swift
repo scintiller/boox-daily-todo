@@ -44,6 +44,11 @@ struct Repository {
         try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
     }
 
+    func setTaskMemo(id: String, memo: Bool) async throws {
+        let data = try JSONSerialization.data(withJSONObject: ["memo": memo])
+        try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
     // MARK: Routines
 
     func getRoutines() async throws -> [Routine] {

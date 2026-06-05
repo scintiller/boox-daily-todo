@@ -10,6 +10,7 @@ final class Store: ObservableObject {
     @Published var weather: [DayWeather] = []
     @Published var loading = false
     @Published var errorText: String?
+    @Published var toast: String?
 
     private var timer: Timer?
 
@@ -49,6 +50,29 @@ final class Store: ObservableObject {
                 try await repo.setTaskDone(id: t.id, done: !t.done)
                 await load()
             } catch { errorText = error.localizedDescription }
+        }
+    }
+
+    func moveToMemo(_ t: TodoTask) {
+        // optimistic: drop it from the today list immediately for a snappy swipe
+        tasks.removeAll { $0.id == t.id }
+        Task {
+            do {
+                try await repo.setTaskMemo(id: t.id, memo: true)
+                showToast("已移到备忘录 📝")
+                await load()
+            } catch {
+                errorText = error.localizedDescription
+                await load() // restore on failure
+            }
+        }
+    }
+
+    private func showToast(_ s: String) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { toast = s }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_900_000_000)
+            withAnimation(.easeOut(duration: 0.3)) { toast = nil }
         }
     }
 
