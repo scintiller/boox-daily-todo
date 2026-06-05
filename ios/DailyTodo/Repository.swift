@@ -49,6 +49,10 @@ struct Repository {
         try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
     }
 
+    func deleteTask(id: String) async throws {
+        try await send(request("tasks?id=eq.\(id)", method: "DELETE", prefer: "return=minimal"))
+    }
+
     // MARK: Routines
 
     func getRoutines() async throws -> [Routine] {

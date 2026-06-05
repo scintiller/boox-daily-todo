@@ -30,11 +30,18 @@ struct TodayView: View {
                         .listRowSeparator(.hidden)
                     ForEach(items) { t in
                         taskButton(t, trailing: dueLabel(t))
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            // 右滑 → 备忘
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                 Button { store.moveToMemo(t) } label: {
                                     Label("备忘", systemImage: "tray.and.arrow.down.fill")
                                 }
                                 .tint(.indigo)
+                            }
+                            // 左滑 → 删除
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) { store.deleteTask(t) } label: {
+                                    Label("删除", systemImage: "trash.fill")
+                                }
                             }
                     }
                 }

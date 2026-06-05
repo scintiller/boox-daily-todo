@@ -68,6 +68,20 @@ final class Store: ObservableObject {
         }
     }
 
+    func deleteTask(_ t: TodoTask) {
+        tasks.removeAll { $0.id == t.id }
+        Task {
+            do {
+                try await repo.deleteTask(id: t.id)
+                showToast("已删除 🗑️")
+                await load()
+            } catch {
+                errorText = error.localizedDescription
+                await load()
+            }
+        }
+    }
+
     private func showToast(_ s: String) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { toast = s }
         Task {
