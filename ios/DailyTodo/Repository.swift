@@ -58,6 +58,16 @@ struct Repository {
         try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
     }
 
+    func updateTask(id: String, title: String, category: String?, workSection: String?,
+                    dueDate: String?, memo: Bool) async throws {
+        var body: [String: Any] = ["title": title, "memo": memo]
+        body["category"] = category ?? NSNull()
+        body["work_section"] = workSection ?? NSNull()
+        body["due_date"] = (dueDate?.isEmpty == false) ? dueDate! : NSNull()
+        let data = try JSONSerialization.data(withJSONObject: body)
+        try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
     func moveTaskToToday(id: String) async throws {
         // un-memo and drop any future due date so it surfaces in 今日
         let data = try JSONSerialization.data(withJSONObject: ["memo": false, "due_date": NSNull()])

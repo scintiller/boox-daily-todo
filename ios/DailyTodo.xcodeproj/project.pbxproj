@@ -16,13 +16,16 @@
 		B6481B0EEFCCA98363F1130E /* Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2857DB03371B739A6F8317B0 /* Repository.swift */; };
 		B8B0B47AC87F3914D797E323 /* WeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02C786FA73BC47319579A14 /* WeatherViews.swift */; };
 		C9BDB46762298F79235DCE12 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF01E51CDF49F9EB447E7385 /* TodayView.swift */; };
+		DF6471680C04A7EEBE6E6F05 /* EditTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1618DFDE4143B597142FC35C /* EditTaskView.swift */; };
 		E26217B1B3AC5F9A3C6781DC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */; };
 		EF2440A623045F6656E9ABC7 /* MemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */; };
+		F7F483F9AD4055406E279539 /* Pomodoro.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8DE5F5FAAE763B297D7814 /* Pomodoro.swift */; };
 		FC24337F63970F10B70D2442 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11513273E0BA175A7F553435 /* RootView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		11513273E0BA175A7F553435 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		1618DFDE4143B597142FC35C /* EditTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditTaskView.swift; sourceTree = "<group>"; };
 		182DCFC98242120143263D62 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
 		2857DB03371B739A6F8317B0 /* Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repository.swift; sourceTree = "<group>"; };
 		456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyTodoApp.swift; sourceTree = "<group>"; };
@@ -33,6 +36,7 @@
 		D02C786FA73BC47319579A14 /* WeatherViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherViews.swift; sourceTree = "<group>"; };
 		D791A43C6A892203C0A41D45 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 		D8351A0C4A5B59E93ABF8660 /* Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Util.swift; sourceTree = "<group>"; };
+		EC8DE5F5FAAE763B297D7814 /* Pomodoro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pomodoro.swift; sourceTree = "<group>"; };
 		EF01E51CDF49F9EB447E7385 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		F88774AA4182AA7E259B1ADD /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -51,8 +55,10 @@
 			children = (
 				8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */,
 				456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */,
+				1618DFDE4143B597142FC35C /* EditTaskView.swift */,
 				5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */,
 				F88774AA4182AA7E259B1ADD /* Models.swift */,
+				EC8DE5F5FAAE763B297D7814 /* Pomodoro.swift */,
 				2857DB03371B739A6F8317B0 /* Repository.swift */,
 				11513273E0BA175A7F553435 /* RootView.swift */,
 				D791A43C6A892203C0A41D45 /* Secrets.swift */,
@@ -164,8 +170,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				6C8A1CD2EEC3D226B18F4263 /* DailyTodoApp.swift in Sources */,
+				DF6471680C04A7EEBE6E6F05 /* EditTaskView.swift in Sources */,
 				EF2440A623045F6656E9ABC7 /* MemoView.swift in Sources */,
 				A0F66968E732915559FD86B8 /* Models.swift in Sources */,
+				F7F483F9AD4055406E279539 /* Pomodoro.swift in Sources */,
 				B6481B0EEFCCA98363F1130E /* Repository.swift in Sources */,
 				FC24337F63970F10B70D2442 /* RootView.swift in Sources */,
 				651FC695FFE5F0F2F06F4E57 /* Secrets.swift in Sources */,

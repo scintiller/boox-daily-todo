@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @StateObject private var store = Store()
+    @StateObject private var pomo = Pomodoro()
     @State private var tab = 0
     @State private var weatherExpanded = false
 
@@ -56,7 +57,7 @@ struct RootView: View {
             Divider()
 
             switch tab {
-            case 0: TodayView(store: store)
+            case 0: TodayView(store: store, pomo: pomo)
             case 1: StatsView(store: store)
             default: MemoView(store: store)
             }

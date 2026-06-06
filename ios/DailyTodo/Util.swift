@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum Cal {
     static let cal = Calendar.current
@@ -55,6 +56,28 @@ enum WorkSections {
     static let order = ["focus", "comms", "feature"]
     static let name = ["focus": "🎯 主线", "comms": "💬 沟通", "feature": "🛠 随手做"]
     static func display(_ key: String?) -> String { name[key ?? ""] ?? "· 未分类" }
+}
+
+/// Accent color per work section / 生活, used by the accent-styled rows.
+func sectionAccent(_ key: String?) -> Color {
+    switch key {
+    case "focus": return .indigo
+    case "comms": return .teal
+    case "feature": return .orange
+    default: return .green   // 生活 / 未分类
+    }
+}
+
+enum TaskStyle: Int, CaseIterable, Identifiable {
+    case minimal, card, accentBar, bold
+    var id: Int { rawValue }
+    var label: String { ["简约", "卡片", "色条", "彩色圆"][rawValue] }
+    static func fromArgs() -> TaskStyle {
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "-Style"), i + 1 < a.count, let n = Int(a[i + 1]),
+           let s = TaskStyle(rawValue: n) { return s }
+        return .card   // chosen default
+    }
 }
 
 enum Categories {

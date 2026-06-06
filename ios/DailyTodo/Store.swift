@@ -15,10 +15,43 @@ final class Store: ObservableObject {
     private var timer: Timer?
 
     func start() {
+        if ProcessInfo.processInfo.arguments.contains("-MockData") {
+            loadMock(); return   // offline sample data for UI screenshots
+        }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { await self?.load() }
         }
+    }
+
+    private func loadMock() {
+        let now = ISO8601DateFormatter().string(from: Date())
+        func iso(_ minAgo: Int) -> String {
+            ISO8601DateFormatter().string(from: Date().addingTimeInterval(-Double(minAgo) * 60))
+        }
+        func t(_ id: String, _ title: String, _ cat: String, _ sec: String? = nil,
+               done: Bool = false, comp: String? = nil) -> TodoTask {
+            TodoTask(id: id, title: title, notes: nil, done: done, memo: false,
+                     category: cat, workSection: sec, dueDate: nil, createdAt: now, completedAt: comp)
+        }
+        tasks = [
+            t("1", "升级到 4.7 模型，加好 monitor", "工作", "focus"),
+            t("2", "Debugmate latency / job run dashboard", "工作", "focus"),
+            t("3", "再问两个人 paper 的事", "工作", "comms"),
+            t("4", "onboard harmony & hatch", "工作", "comms"),
+            t("5", "fix sub agent error issue", "工作", "feature"),
+            t("6", "hide debugmate on QA bug tasks", "工作", "feature"),
+            t("7", "买菜 🥬", "生活"),
+            t("8", "预约牙医", "生活"),
+            t("c1", "回复 PR review", "工作", "focus", done: true, comp: iso(95)),
+            t("c2", "晨会站会", "工作", "comms", done: true, comp: iso(280)),
+        ]
+        routines = [Routine(id: "r1", name: "网球", icon: "🎾",
+                            weekdays: [Cal.isoWeekday(Date())], active: true,
+                            category: "运动", createdAt: now)]
+        logs = []
+        weather = [DayWeather(date: Cal.todayString, code: 0, tMax: 33, tMin: 20,
+                              precip: 0, precipProb: 0, currentTemp: 29)]
     }
 
     func refresh() {
@@ -91,6 +124,20 @@ final class Store: ObservableObject {
                 errorText = error.localizedDescription
                 await load() // restore on failure
             }
+        }
+    }
+
+    func updateTask(_ edited: TodoTask) {
+        if let i = tasks.firstIndex(where: { $0.id == edited.id }) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { tasks[i] = edited }
+        }
+        Task {
+            do {
+                try await repo.updateTask(id: edited.id, title: edited.title, category: edited.category,
+                                          workSection: edited.workSection, dueDate: edited.dueDate, memo: edited.memo)
+                showToast("已更新 ✏️")
+                await load()
+            } catch { errorText = error.localizedDescription; await load() }
         }
     }
 

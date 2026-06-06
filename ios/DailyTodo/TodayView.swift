@@ -2,7 +2,10 @@ import SwiftUI
 
 struct TodayView: View {
     @ObservedObject var store: Store
-    @State private var bucket = 0   // 0=工作 1=生活
+    @ObservedObject var pomo: Pomodoro
+    @State private var bucket = 0           // 0=工作 1=生活
+    @State private var style: TaskStyle = .card
+    @State private var editing: TodoTask?
 
     private var today: String { Cal.todayString }
     private var yesterday: String { Cal.string(Cal.add(days: -1, to: Date())) }
@@ -13,169 +16,234 @@ struct TodayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $bucket) {
-                Text("工作").tag(0)
-                Text("生活").tag(1)
+            PomodoroBar(pomo: pomo)
+
+            // 待办 + inline 工作/生活 toggle (no second-layer tab row)
+            HStack {
+                Text("待办").font(.title2).bold()
+                Spacer()
+                bucketToggle
             }
-            .pickerStyle(.segmented)
             .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
 
             List {
-                if bucket == 0 { workBucket } else { lifeBucket }
+                if bucket == 0 { workContent } else { lifeContent }
             }
             .listStyle(.plain)
-            // List animates row moves (待办 → 已完成) driven by the optimistic toggle.
+        }
+        .onAppear { style = TaskStyle.fromArgs() }
+        .sheet(item: $editing) { t in
+            EditTaskView(task: t,
+                         onSave: { store.updateTask($0) },
+                         onDelete: { store.deleteTask(t) })
         }
     }
 
-    // MARK: 工作 — split into 主线 / 沟通 / 随手做
-    @ViewBuilder private var workBucket: some View {
+    private var bucketToggle: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<2, id: \.self) { i in
+                Text(["工作", "生活"][i])
+                    .font(.subheadline).fontWeight(.semibold)
+                    .foregroundColor(bucket == i ? .white : .secondary)
+                    .padding(.horizontal, 16).padding(.vertical, 6)
+                    .background { if bucket == i { Capsule().fill(Color.accentColor) } }
+                    .contentShape(Capsule())
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.18)) { bucket = i } }
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Color(.systemGray5)))
+    }
+
+    // MARK: content
+    @ViewBuilder private var workContent: some View {
         let pending = store.tasks.filter { $0.category == "工作" && isPending($0) }
-        Section {
-            if pending.isEmpty {
-                Text("工作没有待办 🎉").foregroundColor(.secondary)
-            } else {
-                ForEach(WorkSections.order, id: \.self) { key in
-                    let items = pending.filter { ($0.workSection ?? "") == key }
-                    if !items.isEmpty {
-                        subHeader(WorkSections.name[key] ?? key)
-                        ForEach(items) { t in workRow(t) }
-                    }
-                }
-                let uncat = pending.filter { !WorkSections.order.contains($0.workSection ?? "") }
-                if !uncat.isEmpty {
-                    subHeader("· 未分类")
-                    ForEach(uncat) { t in workRow(t) }
-                }
+        if pending.isEmpty { emptyRow("工作没有待办 🎉") }
+        ForEach(WorkSections.order, id: \.self) { key in
+            let items = pending.filter { ($0.workSection ?? "") == key }
+            if !items.isEmpty {
+                subHeader(WorkSections.name[key] ?? key)
+                ForEach(items) { t in workCell(t) }
             }
-        } header: { sectionTitle("待办") }
-
-        completedSection(work: true)
+        }
+        let uncat = pending.filter { !WorkSections.order.contains($0.workSection ?? "") }
+        if !uncat.isEmpty {
+            subHeader("· 未分类")
+            ForEach(uncat) { t in workCell(t) }
+        }
+        completedRows(work: true)
     }
 
-    // MARK: 生活 — 生活 + 运动 (flat) + 今日 Routine
-    @ViewBuilder private var lifeBucket: some View {
+    @ViewBuilder private var lifeContent: some View {
         let pending = store.tasks.filter { $0.category != "工作" && isPending($0) }
-        Section {
-            if pending.isEmpty {
-                Text("生活没有待办 🎉").foregroundColor(.secondary)
-            } else {
-                ForEach(pending) { t in taskRow(t) }
-            }
-        } header: { sectionTitle("待办") }
-
-        routineSection
-        completedSection(work: false)
-    }
-
-    // MARK: 今日 Routine
-    @ViewBuilder private var routineSection: some View {
+        if pending.isEmpty { emptyRow("生活没有待办 🎉") }
+        ForEach(pending) { t in baseCell(t) }
+        subHeader("今日 Routine")
         let todays = store.routines.filter { $0.weekdays.contains(Cal.isoWeekday(Date())) }
-        Section {
-            if todays.isEmpty {
-                Text("今天没有安排的 routine").foregroundColor(.secondary)
-            } else {
-                ForEach(todays) { r in
-                    let done = store.logs.contains { $0.routineId == r.id && $0.date == today && $0.done }
-                    Button { store.toggleRoutineToday(r) } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.title2)
-                            Text("\(r.icon ?? "")\(r.name)").font(.body)
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        } header: { sectionTitle("今日 Routine") }
+        if todays.isEmpty { emptyRow("今天没有安排的 routine") }
+        ForEach(todays) { r in routineCell(r) }
+        completedRows(work: false)
     }
 
-    // MARK: 已完成
-    @ViewBuilder private func completedSection(work: Bool) -> some View {
-        let doneItems: [(Date, TodoTask)] = store.tasks
+    @ViewBuilder private func completedRows(work: Bool) -> some View {
+        let doneItems = store.tasks
             .filter { $0.done && (($0.category == "工作") == work) }
             .compactMap { t in Cal.parseTimestamp(t.completedAt).map { ($0, t) } }
-        let show = doneItems.contains { Cal.string($0.0) == today || Cal.string($0.0) == yesterday }
-        if show {
-            Section {
-                ForEach([("今天", today), ("昨天", yesterday)], id: \.0) { label, day in
-                    let items = doneItems.filter { Cal.string($0.0) == day }.sorted { $0.0 > $1.0 }
-                    if !items.isEmpty {
-                        subHeader(label)
-                        ForEach(items, id: \.1.id) { date, t in
-                            Button { store.toggleTask(t) } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "checkmark.circle.fill").font(.title2).foregroundColor(.secondary)
-                                    Text(t.title).strikethrough().foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(Cal.hourMinute(date)).font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
+        if doneItems.contains(where: { Cal.string($0.0) == today || Cal.string($0.0) == yesterday }) {
+            subHeader("已完成")
+            ForEach([("今天", today), ("昨天", yesterday)], id: \.0) { label, day in
+                let items = doneItems.filter { Cal.string($0.0) == day }.sorted { $0.0 > $1.0 }
+                if !items.isEmpty {
+                    Text(label).font(.caption).bold().foregroundColor(.secondary)
+                        .plainRow(EdgeInsets(top: 8, leading: 16, bottom: 2, trailing: 16))
+                    ForEach(items, id: \.1.id) { date, t in
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(.secondary)
+                            Text(t.title).strikethrough().foregroundColor(.secondary)
+                            Spacer()
+                            Text(Cal.hourMinute(date)).font(.caption).foregroundColor(.secondary)
                         }
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                        .onTapGesture { store.toggleTask(t) }
+                        .plainRow(rowInsets)
                     }
                 }
-            } header: { sectionTitle("已完成") }
+            }
         }
     }
 
-    // MARK: rows
-    @ViewBuilder private func taskRow(_ t: TodoTask) -> some View {
-        taskButton(t, trailing: dueLabel(t))
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {   // 右滑 → 备忘
-                Button { store.moveToMemo(t) } label: {
-                    Label("备忘", systemImage: "tray.and.arrow.down.fill")
-                }.tint(.indigo)
-            }
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {  // 左滑 → 删除
-                Button(role: .destructive) { store.deleteTask(t) } label: {
-                    Label("删除", systemImage: "trash.fill")
-                }
-            }
-    }
-
-    // work row adds a long-press menu to move between 主线/沟通/随手做
-    @ViewBuilder private func workRow(_ t: TodoTask) -> some View {
-        taskRow(t)
-            .contextMenu {
-                Text("移到")
-                ForEach(WorkSections.order, id: \.self) { key in
-                    if (t.workSection ?? "") != key {
-                        Button { store.setTaskSection(t, key) } label: {
-                            Label(WorkSections.name[key] ?? key, systemImage: "arrow.right.circle")
-                        }
+    // MARK: cells
+    @ViewBuilder private func workCell(_ t: TodoTask) -> some View {
+        baseCell(t).contextMenu {
+            Text("移到")
+            ForEach(WorkSections.order, id: \.self) { key in
+                if (t.workSection ?? "") != key {
+                    Button { store.setTaskSection(t, key) } label: {
+                        Label(WorkSections.name[key] ?? key, systemImage: "arrow.right.circle")
                     }
                 }
             }
+        }
     }
 
-    @ViewBuilder private func taskButton(_ t: TodoTask, trailing: String?) -> some View {
-        Button { store.toggleTask(t) } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: t.done ? "checkmark.circle.fill" : "circle").font(.title2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(t.title).font(.body)
-                    if let trailing { Text(trailing).font(.caption).foregroundColor(.secondary) }
-                }
+    @ViewBuilder private func baseCell(_ t: TodoTask) -> some View {
+        rowContent(t, accent: sectionAccent(t.category == "工作" ? t.workSection : "life"))
+            .contentShape(Rectangle())
+            .onTapGesture { editing = t }    // tap row → edit (checkbox handles complete)
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button { store.moveToMemo(t) } label: { Label("备忘", systemImage: "tray.and.arrow.down.fill") }.tint(.indigo)
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive) { store.deleteTask(t) } label: { Label("删除", systemImage: "trash.fill") }
+            }
+            .listRowSeparator(style == .bold ? .automatic : .hidden)
+            .listRowInsets(rowInsets)
+            .listRowBackground(Color.clear)
+    }
+
+    @ViewBuilder private func routineCell(_ r: Routine) -> some View {
+        let done = store.logs.contains { $0.routineId == r.id && $0.date == today && $0.done }
+        HStack(spacing: 12) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(Color.green)
+            Text("\(r.icon ?? "")\(r.name)").font(.body)
+            Spacer()
+        }
+        .padding(.vertical, style == .card ? 14 : 11)
+        .contentShape(Rectangle())
+        .onTapGesture { store.toggleRoutineToday(r) }
+        .plainRow(rowInsets, separator: style == .bold)
+    }
+
+    // MARK: row visuals per style
+    @ViewBuilder private func rowContent(_ t: TodoTask, accent: Color) -> some View {
+        switch style {
+        case .minimal:
+            HStack(alignment: .center, spacing: 12) {
+                checkbox(t, color: .secondary, big: false)
+                VStack(alignment: .leading, spacing: 3) { titleText(t); metaText(t) }
                 Spacer()
             }
+            .padding(.vertical, 13)
+        case .card:
+            HStack(alignment: .center, spacing: 12) {
+                checkbox(t, color: accent, big: false)
+                VStack(alignment: .leading, spacing: 3) { titleText(t); metaText(t) }
+                Spacer()
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        case .accentBar:
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 2).fill(accent).frame(width: 4)
+                HStack(alignment: .center, spacing: 10) {
+                    checkbox(t, color: accent, big: false)
+                    VStack(alignment: .leading, spacing: 2) { titleText(t); metaText(t) }
+                    Spacer()
+                }
+                .padding(.vertical, 10).padding(.leading, 11).padding(.trailing, 8)
+            }
+            .background(RoundedRectangle(cornerRadius: 9).fill(accent.opacity(0.07)))
+        case .bold:
+            HStack(alignment: .center, spacing: 14) {
+                checkbox(t, color: accent, big: true)
+                VStack(alignment: .leading, spacing: 3) { titleText(t, weight: .medium); metaText(t) }
+                Spacer()
+            }
+            .padding(.vertical, 11)
         }
-        .buttonStyle(.plain)
     }
 
-    // MARK: helpers
-    private func sectionTitle(_ s: String) -> some View {
-        Text(s).font(.title2).bold().foregroundColor(.primary).textCase(nil).padding(.top, 4)
+    private func checkbox(_ t: TodoTask, color: Color, big: Bool) -> some View {
+        Image(systemName: t.done ? "checkmark.circle.fill" : "circle")
+            .font(big ? .title : .title2)
+            .foregroundStyle(color)
+            .frame(width: 36, height: 36)        // bigger hit area
+            .contentShape(Rectangle())
+            .onTapGesture { store.toggleTask(t) } // tap circle → complete
     }
 
+    private func titleText(_ t: TodoTask, weight: Font.Weight = .regular) -> some View {
+        Text(t.title).font(.body.weight(weight))
+            .strikethrough(t.done).foregroundColor(t.done ? .secondary : .primary)
+    }
+
+    @ViewBuilder private func metaText(_ t: TodoTask) -> some View {
+        if let d = dueLabel(t) { Text(d).font(.caption).foregroundColor(.secondary) }
+    }
+
+    // MARK: small helpers
     private func subHeader(_ s: String) -> some View {
-        Text(s).font(.subheadline).bold().foregroundColor(.secondary).listRowSeparator(.hidden)
+        Text(s).font(.subheadline).bold().foregroundColor(.secondary)
+            .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
+    }
+
+    private func emptyRow(_ s: String) -> some View {
+        Text(s).foregroundColor(.secondary)
+            .plainRow(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    private var rowInsets: EdgeInsets {
+        switch style {
+        case .card: return EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16)
+        case .accentBar: return EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)
+        default: return EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        }
     }
 
     private func dueLabel(_ t: TodoTask) -> String? {
         guard let due = t.dueDate else { return nil }
         return (due < today ? "⚠ 逾期 " : "⏰ ") + due
+    }
+}
+
+private extension View {
+    func plainRow(_ insets: EdgeInsets, separator: Bool = false) -> some View {
+        self.listRowSeparator(separator ? .automatic : .hidden)
+            .listRowInsets(insets)
+            .listRowBackground(Color.clear)
     }
 }
