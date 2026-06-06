@@ -51,6 +51,12 @@ enum Cal {
     static func hourMinute(_ date: Date) -> String { hhmm.string(from: date) }
 }
 
+enum WorkSections {
+    static let order = ["focus", "comms", "feature"]
+    static let name = ["focus": "🎯 主线", "comms": "💬 沟通", "feature": "🛠 随手做"]
+    static func display(_ key: String?) -> String { name[key ?? ""] ?? "· 未分类" }
+}
+
 enum Categories {
     static let order = ["工作", "运动", "生活"]
     static let weekdayShort = [1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "日"]

@@ -8,12 +8,14 @@ struct TodoTask: Codable, Identifiable, Equatable {
     var done: Bool
     var memo: Bool
     var category: String?
+    var workSection: String?     // 工作 only: focus | comms | feature
     var dueDate: String?
     var createdAt: String?
     var completedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, notes, done, memo, category
+        case workSection = "work_section"
         case dueDate = "due_date"
         case createdAt = "created_at"
         case completedAt = "completed_at"

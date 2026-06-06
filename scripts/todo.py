@@ -141,6 +141,24 @@ def norm_category(s):
     return CATEGORY_ALIASES.get(s.strip().lower(), s.strip())
 
 
+# ---------- work sub-sections (工作 only) ----------
+# Keys are stable; display names live in the apps. Order: focus → comms → feature.
+SECTIONS = ["focus", "comms", "feature"]
+SECTION_NAMES = {"focus": "🎯 主线", "comms": "💬 沟通", "feature": "🛠 随手做"}
+SECTION_ALIASES = {
+    "focus": "focus", "主线": "focus", "main": "focus", "主要": "focus", "重点": "focus",
+    "comms": "comms", "沟通": "comms", "communication": "comms", "communicate": "comms", "comm": "comms",
+    "feature": "feature", "随手": "feature", "随手做": "feature", "小功能": "feature",
+    "side": "feature", "sidequest": "feature", "小feature": "feature",
+}
+
+
+def norm_section(s):
+    if not s:
+        return None
+    return SECTION_ALIASES.get(s.strip().lower(), s.strip().lower())
+
+
 def group_by_category(rows):
     order = CATEGORIES + ["其他"]
     buckets = {}
@@ -188,11 +206,22 @@ def cmd_task_add(a):
         body["category"] = cat
     if getattr(a, "memo", False):
         body["memo"] = True
+    sec = norm_section(getattr(a, "section", None))
+    if sec:
+        body["work_section"] = sec
     r = rest("POST", "tasks", body=body)[0]
     due = f" (due {r['due_date']})" if r.get("due_date") else ""
     tag = f"[{r['category']}] " if r.get("category") else ""
+    sectag = f"<{SECTION_NAMES.get(r['work_section'], r['work_section'])}> " if r.get("work_section") else ""
     kind = "📝 Memo added" if r.get("memo") else "✅ Added"
-    print(f"{kind}: {tag}{r['title']}{due}  [{short(r['id'])}]")
+    print(f"{kind}: {tag}{sectag}{r['title']}{due}  [{short(r['id'])}]")
+
+
+def cmd_task_section(a):
+    r = resolve_task(a.ref)
+    sec = norm_section(a.section)
+    rest("PATCH", "tasks", params={"id": f"eq.{r['id']}"}, body={"work_section": sec})
+    print(f"🗂 {r['title']} → {SECTION_NAMES.get(sec, sec) or '(无)'}")
 
 
 def cmd_task_list(a):
@@ -404,9 +433,10 @@ def main():
 
     pt = sub.add_parser("task")
     ts = pt.add_subparsers(dest="sub")
-    a = ts.add_parser("add"); a.add_argument("title"); a.add_argument("--due"); a.add_argument("--notes"); a.add_argument("--category", "-c"); a.add_argument("--memo", action="store_true"); a.set_defaults(func=cmd_task_add)
+    a = ts.add_parser("add"); a.add_argument("title"); a.add_argument("--due"); a.add_argument("--notes"); a.add_argument("--category", "-c"); a.add_argument("--section", "-s"); a.add_argument("--memo", action="store_true"); a.set_defaults(func=cmd_task_add)
     a = ts.add_parser("list"); a.add_argument("--all", action="store_true"); a.set_defaults(func=cmd_task_list)
     a = ts.add_parser("cat"); a.add_argument("ref"); a.add_argument("category"); a.set_defaults(func=cmd_task_cat)
+    a = ts.add_parser("section"); a.add_argument("ref"); a.add_argument("section"); a.set_defaults(func=cmd_task_section)
     a = ts.add_parser("done"); a.add_argument("ref"); a.set_defaults(func=cmd_task_done)
     a = ts.add_parser("rm"); a.add_argument("ref"); a.set_defaults(func=cmd_task_rm)
 

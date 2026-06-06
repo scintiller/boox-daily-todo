@@ -16,6 +16,7 @@
 		B6481B0EEFCCA98363F1130E /* Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2857DB03371B739A6F8317B0 /* Repository.swift */; };
 		B8B0B47AC87F3914D797E323 /* WeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02C786FA73BC47319579A14 /* WeatherViews.swift */; };
 		C9BDB46762298F79235DCE12 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF01E51CDF49F9EB447E7385 /* TodayView.swift */; };
+		E26217B1B3AC5F9A3C6781DC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */; };
 		EF2440A623045F6656E9ABC7 /* MemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */; };
 		FC24337F63970F10B70D2442 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11513273E0BA175A7F553435 /* RootView.swift */; };
 /* End PBXBuildFile section */
@@ -28,6 +29,7 @@
 		5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoView.swift; sourceTree = "<group>"; };
 		6EC66BA5042F27294F869567 /* DailyTodo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyTodo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		81A51DD8FC7C2C86C7416C8B /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D02C786FA73BC47319579A14 /* WeatherViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherViews.swift; sourceTree = "<group>"; };
 		D791A43C6A892203C0A41D45 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 		D8351A0C4A5B59E93ABF8660 /* Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Util.swift; sourceTree = "<group>"; };
@@ -47,6 +49,7 @@
 		5FEE3C41B09A3813DD402BA4 /* DailyTodo */ = {
 			isa = PBXGroup;
 			children = (
+				8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */,
 				456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */,
 				5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */,
 				F88774AA4182AA7E259B1ADD /* Models.swift */,
@@ -79,6 +82,7 @@
 			buildPhases = (
 				7B10E990F82EE51B0DAEF41D /* Generate Secrets */,
 				6531E4E67C0916FC3447399F /* Sources */,
+				32CECDEDE04BDB068D98C82E /* Resources */,
 			);
 			buildRules = (
 			);
@@ -120,6 +124,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		32CECDEDE04BDB068D98C82E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E26217B1B3AC5F9A3C6781DC /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		7B10E990F82EE51B0DAEF41D /* Generate Secrets */ = {

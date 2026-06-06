@@ -53,6 +53,17 @@ struct Repository {
         try await send(request("tasks?id=eq.\(id)", method: "DELETE", prefer: "return=minimal"))
     }
 
+    func setTaskSection(id: String, section: String) async throws {
+        let data = try JSONSerialization.data(withJSONObject: ["work_section": section])
+        try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
+    func moveTaskToToday(id: String) async throws {
+        // un-memo and drop any future due date so it surfaces in 今日
+        let data = try JSONSerialization.data(withJSONObject: ["memo": false, "due_date": NSNull()])
+        try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
     // MARK: Routines
 
     func getRoutines() async throws -> [Routine] {

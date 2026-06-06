@@ -23,3 +23,4 @@ ios/DerivedData/
 .DS_Store
 *.iml
 local.properties
+ios/build-sim/

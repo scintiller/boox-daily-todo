@@ -10,6 +10,7 @@ create table if not exists public.tasks (
   title        text not null,
   notes        text,
   category     text,                                -- 工作 | 运动 | 生活
+  work_section text,                                -- 工作 only: focus | comms | feature
   done         boolean not null default false,
   memo         boolean not null default false,      -- true = reminder/someday, hidden from 今日
   due_date     date,
@@ -48,6 +49,7 @@ create index if not exists idx_logs_routine_date on public.routine_logs(routine_
 alter table public.tasks    add column if not exists category text;   -- 工作 | 运动 | 生活
 alter table public.routines add column if not exists category text;
 alter table public.tasks    add column if not exists memo boolean not null default false;
+alter table public.tasks    add column if not exists work_section text;   -- focus | comms | feature
 
 -- Row Level Security ------------------------------------------------
 -- Personal single-user app: enable RLS and let the anon/authenticated

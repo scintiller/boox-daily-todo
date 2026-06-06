@@ -45,11 +45,37 @@ final class Store: ObservableObject {
     }
 
     func toggleTask(_ t: TodoTask) {
+        let newDone = !t.done
+        // Optimistic + animated: the row springs from 待办 into 已完成 right away.
+        if let i = tasks.firstIndex(where: { $0.id == t.id }) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+                tasks[i].done = newDone
+                tasks[i].completedAt = newDone ? ISO8601DateFormatter().string(from: Date()) : nil
+            }
+        }
+        if newDone {
+            UINotificationFeedbackGenerator().notificationOccurred(.success) // no-op on iPad, fires on iPhone
+        }
         Task {
             do {
-                try await repo.setTaskDone(id: t.id, done: !t.done)
+                try await repo.setTaskDone(id: t.id, done: newDone)
                 await load()
-            } catch { errorText = error.localizedDescription }
+            } catch { errorText = error.localizedDescription; await load() }
+        }
+    }
+
+    func setTaskSection(_ t: TodoTask, _ section: String) {
+        if let i = tasks.firstIndex(where: { $0.id == t.id }) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                tasks[i].workSection = section
+            }
+        }
+        Task {
+            do {
+                try await repo.setTaskSection(id: t.id, section: section)
+                showToast("已移到 \(WorkSections.display(section))")
+                await load()
+            } catch { errorText = error.localizedDescription; await load() }
         }
     }
 
@@ -64,6 +90,20 @@ final class Store: ObservableObject {
             } catch {
                 errorText = error.localizedDescription
                 await load() // restore on failure
+            }
+        }
+    }
+
+    func moveToToday(_ t: TodoTask) {
+        tasks.removeAll { $0.id == t.id }
+        Task {
+            do {
+                try await repo.moveTaskToToday(id: t.id)
+                showToast("已转为今日待办 ✅")
+                await load()
+            } catch {
+                errorText = error.localizedDescription
+                await load()
             }
         }
     }
