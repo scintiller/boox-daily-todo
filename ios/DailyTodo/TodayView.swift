@@ -81,9 +81,9 @@ struct TodayView: View {
         if pending.isEmpty { emptyRow("生活没有待办 🎉") }
         ForEach(pending) { t in baseCell(t) }
         subHeader("今日 Routine")
-        let todays = store.routines.filter { $0.weekdays.contains(Cal.isoWeekday(Date())) }
-        if todays.isEmpty { emptyRow("今天没有安排的 routine") }
-        ForEach(todays) { r in routineCell(r) }
+        // anytime habits: show all, check off whenever you do them
+        if store.routines.isEmpty { emptyRow("还没有 routine") }
+        ForEach(store.routines) { r in routineCell(r) }
         completedRows(work: false)
     }
 

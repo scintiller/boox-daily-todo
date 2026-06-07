@@ -46,10 +46,19 @@ final class Store: ObservableObject {
             t("c1", "回复 PR review", "工作", "focus", done: true, comp: iso(95)),
             t("c2", "晨会站会", "工作", "comms", done: true, comp: iso(280)),
         ]
-        routines = [Routine(id: "r1", name: "网球", icon: "🎾",
-                            weekdays: [Cal.isoWeekday(Date())], active: true,
-                            category: "运动", createdAt: now)]
-        logs = []
+        let allDays = [1, 2, 3, 4, 5, 6, 7]
+        routines = [
+            Routine(id: "r1", name: "网球", icon: "🎾", weekdays: allDays, active: true, category: "运动", createdAt: now),
+            Routine(id: "r2", name: "复健", icon: "💪", weekdays: allDays, active: true, category: "运动", createdAt: now),
+            Routine(id: "r3", name: "游泳", icon: "🏊", weekdays: allDays, active: true, category: "运动", createdAt: now),
+        ]
+        func mkLogs(_ rid: String, _ offsets: [Int]) -> [RoutineLog] {
+            offsets.map { RoutineLog(id: nil, routineId: rid,
+                                     date: Cal.string(Cal.add(days: -$0, to: Date())), done: true) }
+        }
+        logs = mkLogs("r1", [0, 2, 5, 9, 12, 16, 19, 23, 27, 33, 40])
+             + mkLogs("r2", [1, 3, 6, 8, 13, 15, 20, 28, 35])
+             + mkLogs("r3", [0, 4, 7, 14, 21, 26, 38])
         weather = [DayWeather(date: Cal.todayString, code: 0, tMax: 33, tMin: 20,
                               precip: 0, precipProb: 0, currentTemp: 29)]
     }

@@ -67,7 +67,11 @@ struct RootView: View {
                 ToastView(text: t)
             }
         }
-        .onAppear { if store.tasks.isEmpty { store.start() } }
+        .onAppear {
+            if store.tasks.isEmpty { store.start() }
+            let a = ProcessInfo.processInfo.arguments   // -Tab N for screenshots
+            if let i = a.firstIndex(of: "-Tab"), i + 1 < a.count, let n = Int(a[i + 1]) { tab = n }
+        }
     }
 }
 

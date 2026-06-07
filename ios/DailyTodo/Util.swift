@@ -32,6 +32,18 @@ enum Cal {
         add(days: -(isoWeekday(date) - 1), to: date)
     }
 
+    static func startOfMonth(_ date: Date) -> Date {
+        cal.date(from: cal.dateComponents([.year, .month], from: date)) ?? date
+    }
+
+    private static let md: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "M/d"
+        return f
+    }()
+    static func monthDay(_ date: Date) -> String { md.string(from: date) }
+
     /// Parse a Postgres timestamptz (e.g. 2026-05-28T18:32:00.12+00:00 or ...Z) to Date.
     static func parseTimestamp(_ s: String?) -> Date? {
         guard let s else { return nil }
