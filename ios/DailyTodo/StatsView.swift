@@ -10,8 +10,20 @@ struct StatsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("坚持度").font(.title2).bold().padding(.top, 8)
+
+                // 🍅 专注记录 — 4 designs to choose from
+                let fd = FocusData(store.focusSessions)
+                Text("🍅 专注记录").font(.title3).bold().padding(.top, 14)
+                Text("4 个设计，挑一个你喜欢的告诉我，我留下它")
+                    .font(.caption).foregroundColor(.secondary).padding(.top, 1)
+                designCard("设计 A · 今日番茄") { FocusDesignA(d: fd) }
+                designCard("设计 B · 每日柱状") { FocusDesignB(d: fd) }
+                designCard("设计 C · 热力图") { FocusDesignC(d: fd) }
+                designCard("设计 D · 目标环") { FocusDesignD(d: fd) }
+
+                Text("习惯打卡").font(.title3).bold().padding(.top, 22)
                 Text("随时打卡 · 看你每周/每月坚持了几次")
-                    .font(.caption).foregroundColor(.secondary).padding(.top, 2)
+                    .font(.caption).foregroundColor(.secondary).padding(.top, 1)
 
                 if store.routines.isEmpty {
                     Text("还没有 routine").foregroundColor(.secondary).padding(.top, 16)
@@ -76,6 +88,18 @@ struct StatsView: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
         .padding(.top, 14)
+    }
+
+    @ViewBuilder
+    private func designCard<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title).font(.caption).bold().foregroundColor(.secondary)
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .padding(.top, 12)
     }
 
     private func statPill(_ label: String, _ n: Int, _ color: Color) -> some View {

@@ -50,6 +50,18 @@ struct RoutineLog: Codable, Identifiable, Equatable {
     }
 }
 
+struct FocusSession: Codable, Identifiable, Equatable {
+    let id: String
+    let phase: String            // work | rest
+    let minutes: Int
+    let endedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, phase, minutes
+        case endedAt = "ended_at"
+    }
+}
+
 struct DayWeather: Equatable, Identifiable {
     var id: String { date }
     let date: String

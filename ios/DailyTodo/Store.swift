@@ -8,6 +8,7 @@ final class Store: ObservableObject {
     @Published var routines: [Routine] = []
     @Published var logs: [RoutineLog] = []
     @Published var weather: [DayWeather] = []
+    @Published var focusSessions: [FocusSession] = []
     @Published var loading = false
     @Published var errorText: String?
     @Published var toast: String?
@@ -61,6 +62,14 @@ final class Store: ObservableObject {
              + mkLogs("r3", [0, 4, 7, 14, 21, 26, 38])
         weather = [DayWeather(date: Cal.todayString, code: 0, tMax: 33, tMin: 20,
                               precip: 0, precipProb: 0, currentTemp: 29)]
+        let f: [(Int, Int)] = [(0, 45), (0, 45), (0, 25), (1, 45), (1, 45), (2, 45), (3, 25), (3, 45),
+                               (4, 45), (5, 45), (6, 45), (7, 45), (8, 25), (10, 45), (11, 45), (13, 45),
+                               (14, 45), (16, 45), (18, 45), (20, 45), (21, 45), (24, 45), (27, 45), (33, 45)]
+        focusSessions = f.enumerated().map { i, e in
+            FocusSession(id: "f\(i)", phase: "work", minutes: e.1,
+                         endedAt: ISO8601DateFormatter().string(
+                            from: Date().addingTimeInterval(-Double(e.0) * 86400 - Double(i) * 600)))
+        }
     }
 
     func refresh() {
@@ -75,15 +84,24 @@ final class Store: ObservableObject {
             async let t = repo.getTasks()
             async let r = repo.getRoutines()
             async let l = repo.getLogs(since: since)
+            async let f = repo.getFocusSessions(sinceDays: 90)
             tasks = try await t
             routines = try await r
             logs = try await l
+            focusSessions = try await f
         } catch {
             errorText = error.localizedDescription
         }
         loading = false
         // Weather fetched separately so a hiccup never blanks the tasks.
         if let w = try? await repo.getWeather() { weather = w }
+    }
+
+    func logFocus(phase: String, minutes: Int) {
+        Task {
+            do { try await repo.logFocusSession(phase: phase, minutes: minutes); await load() }
+            catch { errorText = error.localizedDescription }
+        }
     }
 
     func toggleTask(_ t: TodoTask) {

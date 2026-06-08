@@ -69,6 +69,9 @@ struct RootView: View {
         }
         .onAppear {
             if store.tasks.isEmpty { store.start() }
+            pomo.onComplete = { phase, mins in
+                store.logFocus(phase: phase == .work ? "work" : "rest", minutes: mins)
+            }
             let a = ProcessInfo.processInfo.arguments   // -Tab N for screenshots
             if let i = a.firstIndex(of: "-Tab"), i + 1 < a.count, let n = Int(a[i + 1]) { tab = n }
         }

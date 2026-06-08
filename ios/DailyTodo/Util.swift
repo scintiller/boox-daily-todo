@@ -27,9 +27,9 @@ enum Cal {
         return wd == 1 ? 7 : wd - 1
     }
 
-    /// Monday of the week containing `date`.
+    /// Monday (start of day) of the week containing `date`.
     static func monday(of date: Date) -> Date {
-        add(days: -(isoWeekday(date) - 1), to: date)
+        cal.startOfDay(for: add(days: -(isoWeekday(date) - 1), to: date))
     }
 
     static func startOfMonth(_ date: Date) -> Date {

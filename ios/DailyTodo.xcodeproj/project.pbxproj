@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1E6BD8AD6467CDA8B32FF94E /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182DCFC98242120143263D62 /* Store.swift */; };
+		376AE487913188237B40B644 /* FocusDesigns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E94951A4EFCB9EAFCECB7E1 /* FocusDesigns.swift */; };
 		4DF50962D46D2E7B3A7086FC /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A51DD8FC7C2C86C7416C8B /* StatsView.swift */; };
 		651FC695FFE5F0F2F06F4E57 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791A43C6A892203C0A41D45 /* Secrets.swift */; };
 		6C8A1CD2EEC3D226B18F4263 /* DailyTodoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */; };
@@ -27,6 +28,7 @@
 		11513273E0BA175A7F553435 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		1618DFDE4143B597142FC35C /* EditTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditTaskView.swift; sourceTree = "<group>"; };
 		182DCFC98242120143263D62 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		1E94951A4EFCB9EAFCECB7E1 /* FocusDesigns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusDesigns.swift; sourceTree = "<group>"; };
 		2857DB03371B739A6F8317B0 /* Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repository.swift; sourceTree = "<group>"; };
 		456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyTodoApp.swift; sourceTree = "<group>"; };
 		5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoView.swift; sourceTree = "<group>"; };
@@ -56,6 +58,7 @@
 				8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */,
 				456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */,
 				1618DFDE4143B597142FC35C /* EditTaskView.swift */,
+				1E94951A4EFCB9EAFCECB7E1 /* FocusDesigns.swift */,
 				5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */,
 				F88774AA4182AA7E259B1ADD /* Models.swift */,
 				EC8DE5F5FAAE763B297D7814 /* Pomodoro.swift */,
@@ -171,6 +174,7 @@
 			files = (
 				6C8A1CD2EEC3D226B18F4263 /* DailyTodoApp.swift in Sources */,
 				DF6471680C04A7EEBE6E6F05 /* EditTaskView.swift in Sources */,
+				376AE487913188237B40B644 /* FocusDesigns.swift in Sources */,
 				EF2440A623045F6656E9ABC7 /* MemoView.swift in Sources */,
 				A0F66968E732915559FD86B8 /* Models.swift in Sources */,
 				F7F483F9AD4055406E279539 /* Pomodoro.swift in Sources */,

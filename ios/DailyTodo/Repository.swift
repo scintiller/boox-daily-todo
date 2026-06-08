@@ -96,6 +96,20 @@ struct Repository {
         }
     }
 
+    // MARK: Focus sessions (pomodoro)
+
+    func getFocusSessions(sinceDays: Int) async throws -> [FocusSession] {
+        let cutoff = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-Double(sinceDays) * 86400))
+        let path = "focus_sessions?select=*&ended_at=gte.\(cutoff)&order=ended_at.desc"
+        let data = try await send(request(path, method: "GET"))
+        return try decoder.decode([FocusSession].self, from: data)
+    }
+
+    func logFocusSession(phase: String, minutes: Int) async throws {
+        let data = try JSONSerialization.data(withJSONObject: ["phase": phase, "minutes": minutes])
+        try await send(request("focus_sessions", method: "POST", body: data, prefer: "return=minimal"))
+    }
+
     // MARK: Weather (Open-Meteo, no key, Gilbert AZ)
 
     func getWeather() async throws -> [DayWeather] {

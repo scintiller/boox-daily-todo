@@ -33,6 +33,9 @@ final class Pomodoro: ObservableObject {
     private var endDate: Date?
     private var timer: Timer?
 
+    /// Called when a phase finishes naturally (full duration). (phase, minutes)
+    var onComplete: ((Phase, Int) -> Void)?
+
     init() {
         workMins = UserDefaults.standard.object(forKey: "pomoWork") as? Int ?? 45
         restMins = UserDefaults.standard.object(forKey: "pomoRest") as? Int ?? 15
@@ -76,7 +79,10 @@ final class Pomodoro: ObservableObject {
     private func tick() {
         guard running, let end = endDate else { return }
         let r = Int(end.timeIntervalSinceNow.rounded())
-        if r <= 0 { advance() } else { remaining = r }
+        if r <= 0 {
+            onComplete?(phase, duration(phase))   // record the completed session
+            advance()
+        } else { remaining = r }
     }
 
     private func advance() {
