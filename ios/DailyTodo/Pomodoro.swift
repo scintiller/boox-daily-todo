@@ -81,7 +81,11 @@ final class Pomodoro: ObservableObject {
 
     private func advance() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        phase = (phase == .work) ? .rest : .work   // didSet resets remaining/endDate + reschedules
+        // Switch to the next phase but STOP — wait for the user to tap start.
+        running = false
+        timer?.invalidate(); timer = nil
+        endDate = nil
+        phase = (phase == .work) ? .rest : .work   // didSet: remaining = new duration (not running → no reschedule)
     }
 
     // MARK: notifications
