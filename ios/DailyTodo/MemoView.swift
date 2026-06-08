@@ -2,42 +2,45 @@ import SwiftUI
 
 struct MemoView: View {
     @ObservedObject var store: Store
-    @State private var bucket = 0   // 0=工作 1=生活
     @State private var editing: TodoTask?
     private var today: String { Cal.todayString }
 
+    private func memoSort(_ a: TodoTask, _ b: TodoTask) -> Bool {
+        switch (a.dueDate, b.dueDate) {
+        case let (x?, y?): return x < y        // dated first, soonest first
+        case (nil, _?): return false
+        case (_?, nil): return true
+        default: return false                  // memos (no date) keep order
+        }
+    }
+
     var body: some View {
+        let all = store.tasks.filter {
+            !$0.done && ($0.memo || ($0.dueDate != nil && $0.dueDate! > today))
+        }
+        let life = all.filter { $0.category != "工作" }.sorted(by: memoSort)
+        let work = all.filter { $0.category == "工作" }.sorted(by: memoSort)
+
         VStack(spacing: 0) {
             HStack {
                 Text("备忘录").font(.title2).bold()
                 Spacer()
-                bucketToggle
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
-
-            let all = store.tasks.filter {
-                !$0.done && ($0.memo || ($0.dueDate != nil && $0.dueDate! > today))
-            }
-            let items = all
-                .filter { ($0.category == "工作") == (bucket == 0) }
-                .sorted { a, b in
-                    switch (a.dueDate, b.dueDate) {
-                    case let (x?, y?): return x < y
-                    case (nil, _?): return false
-                    case (_?, nil): return true
-                    default: return false
-                    }
-                }
+            .padding(.horizontal).padding(.top, 8).padding(.bottom, 6)
 
             List {
-                if items.isEmpty {
-                    Text(bucket == 0 ? "工作没有备忘 📝" : "生活没有备忘 📝")
-                        .foregroundColor(.secondary)
+                if all.isEmpty {
+                    Text("还没有备忘 📝").foregroundColor(.secondary)
                         .listRowSeparator(.hidden).listRowBackground(Color.clear)
                 } else {
-                    ForEach(items) { t in memoRow(t) }
+                    if !life.isEmpty {
+                        subHeader("生活")
+                        ForEach(life) { memoRow($0) }
+                    }
+                    if !work.isEmpty {
+                        subHeader("工作")
+                        ForEach(work) { memoRow($0) }
+                    }
                 }
             }
             .listStyle(.plain)
@@ -49,20 +52,11 @@ struct MemoView: View {
         }
     }
 
-    private var bucketToggle: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<2, id: \.self) { i in
-                Text(["工作", "生活"][i])
-                    .font(.subheadline).fontWeight(.semibold)
-                    .foregroundColor(bucket == i ? .white : .secondary)
-                    .padding(.horizontal, 16).padding(.vertical, 6)
-                    .background { if bucket == i { Capsule().fill(Color.accentColor) } }
-                    .contentShape(Capsule())
-                    .onTapGesture { withAnimation(.easeInOut(duration: 0.18)) { bucket = i } }
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Color(.systemGray5)))
+    private func subHeader(_ s: String) -> some View {
+        Text(s).font(.subheadline).bold().foregroundColor(.secondary)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
+            .listRowBackground(Color.clear)
     }
 
     @ViewBuilder private func memoRow(_ t: TodoTask) -> some View {
