@@ -60,18 +60,20 @@ struct TodayView: View {
     // MARK: content
     @ViewBuilder private var workContent: some View {
         let pending = store.tasks.filter { $0.category == "工作" && isPending($0) }
-        if pending.isEmpty { emptyRow("工作没有待办 🎉") }
+        // Always show all 3 sections as drop targets (长按任务可拖到别的分区)
         ForEach(WorkSections.order, id: \.self) { key in
             let items = pending.filter { ($0.workSection ?? "") == key }
-            if !items.isEmpty {
-                subHeader(WorkSections.name[key] ?? key)
-                ForEach(items) { t in workCell(t) }
+            sectionHeader(key)
+            if items.isEmpty {
+                dropHint(key)
+            } else {
+                ForEach(items) { t in baseCell(t, section: key) }
             }
         }
         let uncat = pending.filter { !WorkSections.order.contains($0.workSection ?? "") }
         if !uncat.isEmpty {
             subHeader("· 未分类")
-            ForEach(uncat) { t in workCell(t) }
+            ForEach(uncat) { t in baseCell(t, section: "feature") }
         }
         completedRows(work: true)
     }
@@ -116,20 +118,7 @@ struct TodayView: View {
     }
 
     // MARK: cells
-    @ViewBuilder private func workCell(_ t: TodoTask) -> some View {
-        baseCell(t).contextMenu {
-            Text("移到")
-            ForEach(WorkSections.order, id: \.self) { key in
-                if (t.workSection ?? "") != key {
-                    Button { store.setTaskSection(t, key) } label: {
-                        Label(WorkSections.name[key] ?? key, systemImage: "arrow.right.circle")
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder private func baseCell(_ t: TodoTask) -> some View {
+    @ViewBuilder private func baseCell(_ t: TodoTask, section: String? = nil) -> some View {
         rowContent(t, accent: sectionAccent(t.category == "工作" ? t.workSection : "life"))
             .contentShape(Rectangle())
             .onTapGesture { editing = t }    // tap row → edit (checkbox handles complete)
@@ -139,9 +128,39 @@ struct TodayView: View {
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(role: .destructive) { store.deleteTask(t) } label: { Label("删除", systemImage: "trash.fill") }
             }
+            .modifier(SectionDragDrop(id: t.id, section: section, move: moveToSection))
             .listRowSeparator(style == .bold ? .automatic : .hidden)
             .listRowInsets(rowInsets)
             .listRowBackground(Color.clear)
+    }
+
+    /// Move dragged task ids into a work section.
+    private func moveToSection(_ ids: [String], _ key: String) {
+        for id in ids {
+            if let t = store.tasks.first(where: { $0.id == id }), (t.workSection ?? "") != key {
+                store.setTaskSection(t, key)
+            }
+        }
+    }
+
+    /// Section sub-header that's also a drop target.
+    private func sectionHeader(_ key: String) -> some View {
+        Text(WorkSections.name[key] ?? key)
+            .font(.subheadline).bold().foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .dropDestination(for: String.self) { ids, _ in moveToSection(ids, key); return true }
+            .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
+    }
+
+    private func dropHint(_ key: String) -> some View {
+        Text("拖任务到这里").font(.caption).foregroundColor(Color(.tertiaryLabel))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10).padding(.horizontal, 14)
+            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.systemGray4), style: StrokeStyle(lineWidth: 1, dash: [4])))
+            .contentShape(Rectangle())
+            .dropDestination(for: String.self) { ids, _ in moveToSection(ids, key); return true }
+            .plainRow(EdgeInsets(top: 2, leading: 16, bottom: 6, trailing: 16))
     }
 
     @ViewBuilder private func routineCell(_ r: Routine) -> some View {
@@ -245,5 +264,21 @@ private extension View {
         self.listRowSeparator(separator ? .automatic : .hidden)
             .listRowInsets(insets)
             .listRowBackground(Color.clear)
+    }
+}
+
+/// Makes a work row draggable and a drop target; no-op for rows without a section.
+private struct SectionDragDrop: ViewModifier {
+    let id: String
+    let section: String?
+    let move: ([String], String) -> Void
+    func body(content: Content) -> some View {
+        if let section {
+            content
+                .draggable(id)
+                .dropDestination(for: String.self) { ids, _ in move(ids, section); return true }
+        } else {
+            content
+        }
     }
 }
