@@ -65,8 +65,8 @@ enum Cal {
 }
 
 enum WorkSections {
-    static let order = ["focus", "comms", "feature"]
-    static let name = ["focus": "🎯 主线", "comms": "💬 沟通", "feature": "🛠 随手做"]
+    static let order = ["focus", "feature"]
+    static let name = ["focus": "🎯 主线", "feature": "🛠 随手做"]
     static func display(_ key: String?) -> String { name[key ?? ""] ?? "· 未分类" }
 }
 
@@ -74,7 +74,6 @@ enum WorkSections {
 func sectionAccent(_ key: String?) -> Color {
     switch key {
     case "focus": return .indigo
-    case "comms": return .teal
     case "feature": return .orange
     default: return .green   // 生活 / 未分类
     }

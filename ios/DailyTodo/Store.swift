@@ -38,14 +38,14 @@ final class Store: ObservableObject {
         tasks = [
             t("1", "升级到 4.7 模型，加好 monitor", "工作", "focus"),
             t("2", "Debugmate latency / job run dashboard", "工作", "focus"),
-            t("3", "再问两个人 paper 的事", "工作", "comms"),
-            t("4", "onboard harmony & hatch", "工作", "comms"),
+            t("3", "再问两个人 paper 的事", "工作", "focus"),
+            t("4", "onboard harmony & hatch", "工作", "feature"),
             t("5", "fix sub agent error issue", "工作", "feature"),
             t("6", "hide debugmate on QA bug tasks", "工作", "feature"),
             t("7", "买菜 🥬", "生活"),
             t("8", "预约牙医", "生活"),
             t("c1", "回复 PR review", "工作", "focus", done: true, comp: iso(95)),
-            t("c2", "晨会站会", "工作", "comms", done: true, comp: iso(280)),
+            t("c2", "晨会站会", "工作", "focus", done: true, comp: iso(280)),
         ]
         let allDays = [1, 2, 3, 4, 5, 6, 7]
         routines = [

@@ -142,12 +142,13 @@ def norm_category(s):
 
 
 # ---------- work sub-sections (工作 only) ----------
-# Keys are stable; display names live in the apps. Order: focus → comms → feature.
-SECTIONS = ["focus", "comms", "feature"]
-SECTION_NAMES = {"focus": "🎯 主线", "comms": "💬 沟通", "feature": "🛠 随手做"}
+# Keys are stable; display names live in the apps. Order: focus → feature.
+SECTIONS = ["focus", "feature"]
+SECTION_NAMES = {"focus": "🎯 主线", "feature": "🛠 随手做"}
 SECTION_ALIASES = {
     "focus": "focus", "主线": "focus", "main": "focus", "主要": "focus", "重点": "focus",
-    "comms": "comms", "沟通": "comms", "communication": "comms", "communicate": "comms", "comm": "comms",
+    # 沟通 removed → fold any comms reference into 主线
+    "comms": "focus", "沟通": "focus", "communication": "focus", "communicate": "focus", "comm": "focus",
     "feature": "feature", "随手": "feature", "随手做": "feature", "小功能": "feature",
     "side": "feature", "sidequest": "feature", "小feature": "feature",
 }
