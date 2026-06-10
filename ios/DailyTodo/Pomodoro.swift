@@ -38,7 +38,7 @@ final class Pomodoro: ObservableObject {
 
     init() {
         workMins = UserDefaults.standard.object(forKey: "pomoWork") as? Int ?? 45
-        restMins = UserDefaults.standard.object(forKey: "pomoRest") as? Int ?? 15
+        restMins = UserDefaults.standard.object(forKey: "pomoRest") as? Int ?? 10
         remaining = (UserDefaults.standard.object(forKey: "pomoWork") as? Int ?? 45) * 60
     }
 
@@ -80,6 +80,7 @@ final class Pomodoro: ObservableObject {
         guard running, let end = endDate else { return }
         let r = Int(end.timeIntervalSinceNow.rounded())
         if r <= 0 {
+            Chime.shared.play3s()                 // 3-second end-of-session sound
             onComplete?(phase, duration(phase))   // record the completed session
             advance()
         } else { remaining = r }

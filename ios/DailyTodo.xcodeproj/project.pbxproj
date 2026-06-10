@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1E6BD8AD6467CDA8B32FF94E /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182DCFC98242120143263D62 /* Store.swift */; };
+		2E4C8A5DC4495DA133D9780F /* Chime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798193D174D31CFB8927E23A /* Chime.swift */; };
 		376AE487913188237B40B644 /* FocusDesigns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E94951A4EFCB9EAFCECB7E1 /* FocusDesigns.swift */; };
 		4DF50962D46D2E7B3A7086FC /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A51DD8FC7C2C86C7416C8B /* StatsView.swift */; };
 		651FC695FFE5F0F2F06F4E57 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791A43C6A892203C0A41D45 /* Secrets.swift */; };
@@ -33,6 +34,7 @@
 		456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyTodoApp.swift; sourceTree = "<group>"; };
 		5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoView.swift; sourceTree = "<group>"; };
 		6EC66BA5042F27294F869567 /* DailyTodo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DailyTodo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		798193D174D31CFB8927E23A /* Chime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chime.swift; sourceTree = "<group>"; };
 		81A51DD8FC7C2C86C7416C8B /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D02C786FA73BC47319579A14 /* WeatherViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherViews.swift; sourceTree = "<group>"; };
@@ -56,6 +58,7 @@
 			isa = PBXGroup;
 			children = (
 				8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */,
+				798193D174D31CFB8927E23A /* Chime.swift */,
 				456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */,
 				1618DFDE4143B597142FC35C /* EditTaskView.swift */,
 				1E94951A4EFCB9EAFCECB7E1 /* FocusDesigns.swift */,
@@ -172,6 +175,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2E4C8A5DC4495DA133D9780F /* Chime.swift in Sources */,
 				6C8A1CD2EEC3D226B18F4263 /* DailyTodoApp.swift in Sources */,
 				DF6471680C04A7EEBE6E6F05 /* EditTaskView.swift in Sources */,
 				376AE487913188237B40B644 /* FocusDesigns.swift in Sources */,
