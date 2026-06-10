@@ -74,7 +74,14 @@ final class Pomodoro: ObservableObject {
 
     func reset() { pause(); phase = .work; remaining = workMins * 60 }
 
-    func skip() { advance() }
+    /// End the current phase early. Records the session at its ACTUAL elapsed
+    /// length (e.g. skip a 45-min focus with 2 min left → logs 43 min), then
+    /// switches to the next phase (paused, waiting for a tap).
+    func skip() {
+        let elapsedMin = Int((Double(duration(phase) * 60 - remaining) / 60.0).rounded())
+        if elapsedMin >= 1 { onComplete?(phase, elapsedMin) }
+        advance()
+    }
 
     private func tick() {
         guard running, let end = endDate else { return }
