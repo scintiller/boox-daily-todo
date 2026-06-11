@@ -47,8 +47,9 @@ final class Pomodoro: ObservableObject {
     func duration(_ p: Phase) -> Int { p == .work ? workMins : restMins }
 
     var label: String {
-        let r = max(0, remaining)
-        return String(format: "%02d:%02d", r / 60, r % 60)
+        // 专注倒计时；休息正计时（显示已休息的时长，往上数）。
+        let secs = phase == .rest ? max(0, duration(phase) * 60 - remaining) : max(0, remaining)
+        return String(format: "%02d:%02d", secs / 60, secs % 60)
     }
     var phaseLabel: String { phase == .work ? "专注" : "休息" }
     /// At rest = not running and sitting at the full duration (nothing in progress).
