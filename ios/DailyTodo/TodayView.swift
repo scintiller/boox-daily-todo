@@ -1,4 +1,20 @@
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// Load dropped task ids (NSString) and move them into `key`.
+private func acceptDrop(_ providers: [NSItemProvider], _ key: String,
+                        _ move: @escaping ([String], String) -> Void) -> Bool {
+    var any = false
+    for p in providers where p.canLoadObject(ofClass: NSString.self) {
+        any = true
+        _ = p.loadObject(ofClass: NSString.self) { obj, _ in
+            if let s = obj as? String {
+                DispatchQueue.main.async { move([s], key) }
+            }
+        }
+    }
+    return any
+}
 
 struct TodayView: View {
     @ObservedObject var store: Store
@@ -149,7 +165,7 @@ struct TodayView: View {
             .font(.subheadline).bold().foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .dropDestination(for: String.self) { ids, _ in moveToSection(ids, key); return true }
+            .onDrop(of: [UTType.text], isTargeted: nil) { acceptDrop($0, key, moveToSection) }
             .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
     }
 
@@ -159,7 +175,7 @@ struct TodayView: View {
             .padding(.vertical, 10).padding(.horizontal, 14)
             .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.systemGray4), style: StrokeStyle(lineWidth: 1, dash: [4])))
             .contentShape(Rectangle())
-            .dropDestination(for: String.self) { ids, _ in moveToSection(ids, key); return true }
+            .onDrop(of: [UTType.text], isTargeted: nil) { acceptDrop($0, key, moveToSection) }
             .plainRow(EdgeInsets(top: 2, leading: 16, bottom: 6, trailing: 16))
     }
 
@@ -217,17 +233,19 @@ struct TodayView: View {
     }
 
     private func checkbox(_ t: TodoTask, color: Color, big: Bool) -> some View {
-        Image(systemName: t.done ? "checkmark.circle.fill" : "circle")
+        let on = t.done || store.completingIds.contains(t.id)
+        return Image(systemName: on ? "checkmark.circle.fill" : "circle")
             .font(big ? .title : .title2)
             .foregroundStyle(color)
             .frame(width: 36, height: 36)        // bigger hit area
             .contentShape(Rectangle())
-            .onTapGesture { store.toggleTask(t) } // tap circle → complete
+            .onTapGesture { if !on { store.toggleTask(t) } } // tap circle → complete
     }
 
     private func titleText(_ t: TodoTask, weight: Font.Weight = .regular) -> some View {
-        Text(t.title).font(.body.weight(weight))
-            .strikethrough(t.done).foregroundColor(t.done ? .secondary : .primary)
+        let on = t.done || store.completingIds.contains(t.id)
+        return Text(t.title).font(.body.weight(weight))
+            .strikethrough(on).foregroundColor(on ? .secondary : .primary)
     }
 
     @ViewBuilder private func metaText(_ t: TodoTask) -> some View {
@@ -275,8 +293,8 @@ private struct SectionDragDrop: ViewModifier {
     func body(content: Content) -> some View {
         if let section {
             content
-                .draggable(id)
-                .dropDestination(for: String.self) { ids, _ in move(ids, section); return true }
+                .onDrag { NSItemProvider(object: id as NSString) }
+                .onDrop(of: [UTType.text], isTargeted: nil) { acceptDrop($0, section, move) }
         } else {
             content
         }

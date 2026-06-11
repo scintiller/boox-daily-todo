@@ -1,13 +1,13 @@
 import AVFoundation
 
-/// Plays a ~3-second beeping chime when a pomodoro phase ends.
+/// Plays a ~7-second beeping chime when a pomodoro phase ends.
 /// Synthesizes the tone in code (no bundled asset) and uses .playback so it
 /// sounds even if the ringer is on silent.
 final class Chime: NSObject, AVAudioPlayerDelegate {
     static let shared = Chime()
     private var player: AVAudioPlayer?
 
-    func play3s() {
+    func play() {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, options: [.duckOthers])
         try? session.setActive(true)
@@ -22,9 +22,9 @@ final class Chime: NSObject, AVAudioPlayerDelegate {
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
-    // 3s of a gentle repeating beep (0.25s tone @ 880Hz + 0.15s gap), 16-bit mono WAV.
+    // 7s of a gentle repeating beep (0.25s tone @ 880Hz + 0.15s gap), 16-bit mono WAV.
     private static func makeWav() -> Data? {
-        let sr = 44100.0, duration = 3.0, freq = 880.0
+        let sr = 44100.0, duration = 7.0, freq = 880.0
         let total = Int(sr * duration)
         let onN = Int(0.25 * sr), offN = Int(0.15 * sr), period = onN + offN
         var samples = [Int16](); samples.reserveCapacity(total)

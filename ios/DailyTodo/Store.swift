@@ -11,6 +11,9 @@ final class Store: ObservableObject {
     @Published var focusSessions: [FocusSession] = []
     @Published var loading = false
     @Published var errorText: String?
+    @Published var completingIds: Set<String> = []   // struck-through, mid-celebration
+    @Published var celebration: CelebrationEvent?
+    private var celebCounter = 0
     @Published var toast: String?
 
     private var timer: Timer?
@@ -105,22 +108,38 @@ final class Store: ObservableObject {
     }
 
     func toggleTask(_ t: TodoTask) {
-        let newDone = !t.done
-        // Optimistic + animated: the row springs from 待办 into 已完成 right away.
-        if let i = tasks.firstIndex(where: { $0.id == t.id }) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
-                tasks[i].done = newDone
-                tasks[i].completedAt = newDone ? ISO8601DateFormatter().string(from: Date()) : nil
+        if !t.done {
+            // Completing: 1) strike the line through in place, 2) celebrate,
+            //             3) after a beat, move it into 已完成.
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            completingIds.insert(t.id)
+            celebCounter += 1
+            celebration = CelebrationEvent(id: celebCounter, effect: Int.random(in: 0..<10))
+            let id = t.id
+            Task {
+                try? await Task.sleep(nanoseconds: 850_000_000)
+                completingIds.remove(id)
+                if let i = tasks.firstIndex(where: { $0.id == id }) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+                        tasks[i].done = true
+                        tasks[i].completedAt = ISO8601DateFormatter().string(from: Date())
+                    }
+                }
+                do { try await repo.setTaskDone(id: id, done: true); await load() }
+                catch { errorText = error.localizedDescription; await load() }
             }
-        }
-        if newDone {
-            UINotificationFeedbackGenerator().notificationOccurred(.success) // no-op on iPad, fires on iPhone
-        }
-        Task {
-            do {
-                try await repo.setTaskDone(id: t.id, done: newDone)
-                await load()
-            } catch { errorText = error.localizedDescription; await load() }
+        } else {
+            // Un-complete (tapped in 已完成): revert immediately.
+            if let i = tasks.firstIndex(where: { $0.id == t.id }) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+                    tasks[i].done = false
+                    tasks[i].completedAt = nil
+                }
+            }
+            Task {
+                do { try await repo.setTaskDone(id: t.id, done: false); await load() }
+                catch { errorText = error.localizedDescription; await load() }
+            }
         }
     }
 

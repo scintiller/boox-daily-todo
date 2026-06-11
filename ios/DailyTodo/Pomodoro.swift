@@ -16,6 +16,8 @@ final class Pomodoro: ObservableObject {
     }
     @Published var running = false
     @Published var remaining = 45 * 60
+    /// True right after a FOCUS phase finishes: stay on 专注, offer 延长 / 开始休息.
+    @Published var awaitingChoice = false
 
     @Published var workMins: Int {
         didSet {
@@ -55,6 +57,7 @@ final class Pomodoro: ObservableObject {
     func toggle() { running ? pause() : start() }
 
     func start() {
+        awaitingChoice = false
         running = true
         endDate = Date().addingTimeInterval(Double(remaining))
         requestAuthOnce()
@@ -72,7 +75,7 @@ final class Pomodoro: ObservableObject {
         cancelNotification()
     }
 
-    func reset() { pause(); phase = .work; remaining = workMins * 60 }
+    func reset() { pause(); awaitingChoice = false; phase = .work; remaining = workMins * 60 }
 
     /// End the current phase early. Records the session at its ACTUAL elapsed
     /// length (e.g. skip a 45-min focus with 2 min left → logs 43 min), then
@@ -83,18 +86,42 @@ final class Pomodoro: ObservableObject {
         advance()
     }
 
+    /// 专注结束后选择延长（继续专注 N 分钟）。
+    func extend(_ mins: Int = 10) {
+        awaitingChoice = false
+        remaining = mins * 60
+        start()
+    }
+
+    /// 专注结束后选择去休息（停住，等点开始）。
+    func chooseRest() {
+        awaitingChoice = false
+        phase = .rest
+    }
+
     private func tick() {
         guard running, let end = endDate else { return }
         let r = Int(end.timeIntervalSinceNow.rounded())
         if r <= 0 {
-            Chime.shared.play3s()                 // 3-second end-of-session sound
+            Chime.shared.play()                   // 7-second end-of-session sound
             onComplete?(phase, duration(phase))   // record the completed session
-            advance()
+            if phase == .work { finishWork() } else { advance() }
         } else { remaining = r }
+    }
+
+    /// Focus finished: STAY on 专注, wait for the user to extend or start a break.
+    private func finishWork() {
+        running = false
+        timer?.invalidate(); timer = nil
+        endDate = nil
+        remaining = 0
+        awaitingChoice = true
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private func advance() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        awaitingChoice = false
         // Switch to the next phase but STOP — wait for the user to tap start.
         running = false
         timer?.invalidate(); timer = nil
@@ -134,20 +161,52 @@ struct PomodoroBar: View {
             header
             if expanded {
                 VStack(spacing: 14) {
-                    Picker("", selection: phaseBinding) {
-                        Text("专注").tag(Pomodoro.Phase.work)
-                        Text("休息").tag(Pomodoro.Phase.rest)
+                    if !pomo.awaitingChoice {
+                        Picker("", selection: phaseBinding) {
+                            Text("专注").tag(Pomodoro.Phase.work)
+                            Text("休息").tag(Pomodoro.Phase.rest)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 260)
                     }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 260)
 
-                    if pomo.idle {
-                        // Apple-timer-style wheel to set the duration
+                    if pomo.awaitingChoice {
+                        // Focus finished — stay on 专注, offer to extend or take a break
+                        Text("专注结束 🎉").font(.title2).bold().foregroundColor(color)
+                        HStack(spacing: 12) {
+                            Button { pomo.extend(10) } label: {
+                                Label("延长 10 分钟", systemImage: "plus")
+                                    .font(.subheadline).fontWeight(.semibold).foregroundColor(color)
+                                    .padding(.horizontal, 18).padding(.vertical, 12)
+                                    .background(Capsule().strokeBorder(color, lineWidth: 1.5))
+                            }.buttonStyle(.plain)
+                            Button { pomo.chooseRest() } label: {
+                                Label("开始休息", systemImage: "cup.and.saucer.fill")
+                                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
+                                    .padding(.horizontal, 18).padding(.vertical, 12)
+                                    .background(Capsule().fill(Color.green))
+                            }.buttonStyle(.plain)
+                        }
+                    } else if pomo.idle {
+                        // quick presets
+                        HStack(spacing: 10) {
+                            ForEach(presets, id: \.self) { m in
+                                let sel = (pomo.phase == .work ? pomo.workMins : pomo.restMins) == m
+                                Button { setDuration(m) } label: {
+                                    Text("\(m)").font(.subheadline).fontWeight(.semibold)
+                                        .foregroundColor(sel ? .white : color)
+                                        .frame(width: 48, height: 34)
+                                        .background(Capsule().fill(sel ? color : color.opacity(0.12)))
+                                }.buttonStyle(.plain)
+                            }
+                            Text("分钟").font(.caption).foregroundColor(.secondary)
+                        }
+                        // Apple-timer-style wheel for fine control
                         Picker("", selection: durationBinding) {
                             ForEach(1...90, id: \.self) { Text("\($0) 分钟").tag($0) }
                         }
                         .pickerStyle(.wheel)
-                        .frame(height: 124)
+                        .frame(height: 110)
                         .clipped()
                         Button { pomo.start() } label: {
                             Label("开始\(pomo.phaseLabel)", systemImage: "play.fill")
@@ -180,13 +239,16 @@ struct PomodoroBar: View {
     private var header: some View {
         HStack(spacing: 8) {
             Text("🍅 番茄钟").font(.subheadline).bold()
-            if !pomo.idle {
+            if pomo.awaitingChoice {
+                Text("·").foregroundColor(.secondary)
+                Text("专注结束 🎉").font(.subheadline).foregroundColor(color)
+            } else if !pomo.idle {
                 Text("·").foregroundColor(.secondary)
                 Text(pomo.phaseLabel).font(.subheadline).foregroundColor(color)
                 Text(pomo.label).font(.subheadline).monospacedDigit().foregroundColor(.secondary)
             }
             Spacer()
-            if !pomo.idle && !expanded {
+            if !pomo.idle && !pomo.awaitingChoice && !expanded {
                 Button { pomo.toggle() } label: {
                     Image(systemName: pomo.running ? "pause.fill" : "play.fill")
                 }.buttonStyle(.plain).foregroundColor(color)
@@ -199,8 +261,12 @@ struct PomodoroBar: View {
         .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() } }
     }
 
+    private var presets: [Int] { pomo.phase == .work ? [45, 30, 15] : [15, 10, 5] }
+    private func setDuration(_ m: Int) {
+        if pomo.phase == .work { pomo.workMins = m } else { pomo.restMins = m }
+    }
     private var phaseBinding: Binding<Pomodoro.Phase> {
-        Binding(get: { pomo.phase }, set: { pomo.phase = $0 })
+        Binding(get: { pomo.phase }, set: { pomo.awaitingChoice = false; pomo.phase = $0 })
     }
     private var durationBinding: Binding<Int> {
         Binding(get: { pomo.phase == .work ? pomo.workMins : pomo.restMins },

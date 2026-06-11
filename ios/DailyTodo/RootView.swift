@@ -67,6 +67,14 @@ struct RootView: View {
                 ToastView(text: t)
             }
         }
+        .overlay {
+            if let c = store.celebration {
+                CelebrationView(effect: c.effect) {
+                    if store.celebration?.id == c.id { store.celebration = nil }
+                }
+                .id(c.id)
+            }
+        }
         .onAppear {
             if store.tasks.isEmpty { store.start() }
             pomo.onComplete = { phase, mins in
@@ -74,6 +82,9 @@ struct RootView: View {
             }
             let a = ProcessInfo.processInfo.arguments   // -Tab N for screenshots
             if let i = a.firstIndex(of: "-Tab"), i + 1 < a.count, let n = Int(a[i + 1]) { tab = n }
+            if let i = a.firstIndex(of: "-Celebrate"), i + 1 < a.count, let n = Int(a[i + 1]) {
+                store.celebration = CelebrationEvent(id: 99, effect: n)
+            }
         }
     }
 }
