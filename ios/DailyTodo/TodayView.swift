@@ -34,6 +34,8 @@ struct TodayView: View {
         VStack(spacing: 0) {
             PomodoroBar(pomo: pomo)
 
+            if !store.goals.isEmpty { goalsCard }
+
             // 待办 + inline 工作/生活 toggle (no second-layer tab row)
             HStack {
                 Text("待办").font(.title2).bold()
@@ -55,6 +57,25 @@ struct TodayView: View {
                          onSave: { store.updateTask($0) },
                          onDelete: { store.deleteTask(t) })
         }
+    }
+
+    private var goalsCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("🎯 本周目标").font(.subheadline).bold().foregroundColor(.secondary)
+            ForEach(store.goals) { g in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "circle").font(.title3).foregroundStyle(.indigo)
+                        .frame(width: 30, height: 26).contentShape(Rectangle())
+                        .onTapGesture { store.toggleGoal(g) }
+                    Text(g.title).font(.callout).fontWeight(.medium)
+                    Spacer()
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.indigo.opacity(0.09)))
+        .padding(.horizontal).padding(.top, 8)
     }
 
     private var bucketToggle: some View {

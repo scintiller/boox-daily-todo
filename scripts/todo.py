@@ -426,6 +426,57 @@ def cmd_today(a):
             print(f"  ☐ [{short(t['id'])}] {t['title']}{due}")
 
 
+# ---------- goals (weekly / monthly objectives) ----------
+def fetch_goals(include_done=False):
+    params = {"select": "*", "order": "created_at.asc"}
+    if not include_done:
+        params["done"] = "is.false"
+    return rest("GET", "goals", params)
+
+
+def resolve_goal(ref):
+    ref = ref.strip()
+    rows = rest("GET", "goals", {"select": "*"})
+    for r in rows:
+        if r["id"] == ref or r["id"].startswith(ref):
+            return r
+    sub = [r for r in rows if ref.lower() in r["title"].lower()]
+    if len(sub) == 1:
+        return sub[0]
+    die(f"No goal matches '{ref}'")
+
+
+def cmd_goal_add(a):
+    period = "month" if (a.period or "week").lower().startswith("m") or (a.period or "") in ("月", "本月") else "week"
+    r = rest("POST", "goals", body={"title": a.title, "period": period})[0]
+    label = "本月" if period == "month" else "本周"
+    print(f"🎯 Goal added [{label}]: {r['title']}  [{short(r['id'])}]")
+
+
+def cmd_goal_list(a):
+    rows = fetch_goals(include_done=a.all)
+    if not rows:
+        print("(no goals)")
+        return
+    for r in rows:
+        box = "☑" if r["done"] else "🎯"
+        label = "本月" if r.get("period") == "month" else "本周"
+        print(f"{box} [{label}] [{short(r['id'])}] {r['title']}")
+
+
+def cmd_goal_done(a):
+    r = resolve_goal(a.ref)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    rest("PATCH", "goals", params={"id": f"eq.{r['id']}"}, body={"done": True, "completed_at": now})
+    print(f"✔ Goal done: {r['title']}")
+
+
+def cmd_goal_rm(a):
+    r = resolve_goal(a.ref)
+    rest("DELETE", "goals", params={"id": f"eq.{r['id']}"})
+    print(f"🗑 Goal removed: {r['title']}")
+
+
 def main():
     p = argparse.ArgumentParser(prog="todo")
     sub = p.add_subparsers(dest="cmd")
@@ -449,6 +500,13 @@ def main():
     a = rs.add_parser("days"); a.add_argument("ref"); a.add_argument("days"); a.set_defaults(func=cmd_routine_days)
     a = rs.add_parser("log"); a.add_argument("ref"); a.add_argument("--date"); a.add_argument("--undo", action="store_true"); a.set_defaults(func=cmd_routine_log)
     a = rs.add_parser("stats"); a.add_argument("--weeks", type=int, default=8); a.set_defaults(func=cmd_routine_stats)
+
+    pg = sub.add_parser("goal")
+    gs = pg.add_subparsers(dest="sub")
+    a = gs.add_parser("add"); a.add_argument("title"); a.add_argument("--period", "-p"); a.set_defaults(func=cmd_goal_add)
+    a = gs.add_parser("list"); a.add_argument("--all", action="store_true"); a.set_defaults(func=cmd_goal_list)
+    a = gs.add_parser("done"); a.add_argument("ref"); a.set_defaults(func=cmd_goal_done)
+    a = gs.add_parser("rm"); a.add_argument("ref"); a.set_defaults(func=cmd_goal_rm)
 
     args = p.parse_args()
     if not hasattr(args, "func"):

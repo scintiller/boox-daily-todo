@@ -8,6 +8,7 @@ final class Store: ObservableObject {
     @Published var routines: [Routine] = []
     @Published var logs: [RoutineLog] = []
     @Published var weather: [DayWeather] = []
+    @Published var goals: [Goal] = []
     @Published var focusSessions: [FocusSession] = []
     @Published var loading = false
     @Published var errorText: String?
@@ -65,6 +66,11 @@ final class Store: ObservableObject {
              + mkLogs("r3", [0, 4, 7, 14, 21, 26, 38])
         weather = [DayWeather(date: Cal.todayString, code: 0, tMax: 33, tMin: 20,
                               precip: 0, precipProb: 0, currentTemp: 29)]
+        goals = [
+            Goal(id: "g1", title: "提交 NIW assessment", period: "week", done: false),
+            Goal(id: "g2", title: "问黄老师是否有科研机会", period: "week", done: false),
+            Goal(id: "g3", title: "改好简历，添加GitHub项目+个人主页，投3份简历", period: "week", done: false),
+        ]
         let f: [(Int, Int)] = [(0, 45), (0, 45), (0, 25), (1, 45), (1, 45), (2, 45), (3, 25), (3, 45),
                                (4, 45), (5, 45), (6, 45), (7, 45), (8, 25), (10, 45), (11, 45), (13, 45),
                                (14, 45), (16, 45), (18, 45), (20, 45), (21, 45), (24, 45), (27, 45), (33, 45)]
@@ -88,16 +94,28 @@ final class Store: ObservableObject {
             async let r = repo.getRoutines()
             async let l = repo.getLogs(since: since)
             async let f = repo.getFocusSessions(sinceDays: 90)
+            async let g = repo.getGoals()
             tasks = try await t
             routines = try await r
             logs = try await l
             focusSessions = try await f
+            goals = try await g
         } catch {
             errorText = error.localizedDescription
         }
         loading = false
         // Weather fetched separately so a hiccup never blanks the tasks.
         if let w = try? await repo.getWeather() { weather = w }
+    }
+
+    func toggleGoal(_ g: Goal) {
+        if let i = goals.firstIndex(where: { $0.id == g.id }), !g.done {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { goals[i].done = true }
+        }
+        Task {
+            do { try await repo.setGoalDone(id: g.id, done: !g.done); await load() }
+            catch { errorText = error.localizedDescription; await load() }
+        }
     }
 
     func logFocus(phase: String, minutes: Int) {

@@ -50,6 +50,17 @@ struct RoutineLog: Codable, Identifiable, Equatable {
     }
 }
 
+struct Goal: Codable, Identifiable, Equatable {
+    let id: String
+    var title: String
+    var period: String           // week | month
+    var done: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, period, done
+    }
+}
+
 struct FocusSession: Codable, Identifiable, Equatable {
     let id: String
     let phase: String            // work | rest

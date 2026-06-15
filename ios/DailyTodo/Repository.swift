@@ -96,6 +96,20 @@ struct Repository {
         }
     }
 
+    // MARK: Goals (weekly / monthly objectives)
+
+    func getGoals() async throws -> [Goal] {
+        let data = try await send(request("goals?select=*&done=is.false&order=created_at.asc", method: "GET"))
+        return try decoder.decode([Goal].self, from: data)
+    }
+
+    func setGoalDone(id: String, done: Bool) async throws {
+        var body: [String: Any] = ["done": done]
+        body["completed_at"] = done ? ISO8601DateFormatter().string(from: Date()) : NSNull()
+        let data = try JSONSerialization.data(withJSONObject: body)
+        try await send(request("goals?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
     // MARK: Focus sessions (pomodoro)
 
     func getFocusSessions(sinceDays: Int) async throws -> [FocusSession] {
