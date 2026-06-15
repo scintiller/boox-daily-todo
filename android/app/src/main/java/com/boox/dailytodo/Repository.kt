@@ -88,6 +88,44 @@ class Repository {
         }
     }
 
+    suspend fun setTaskSection(id: String, section: String) = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject { put("work_section", section) }
+        exec(request(base + "tasks?id=eq.$id", "PATCH", payload.toString().toRequestBody(media), "return=minimal"))
+    }
+
+    suspend fun setTaskMemo(id: String, memo: Boolean) = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject { put("memo", memo) }
+        exec(request(base + "tasks?id=eq.$id", "PATCH", payload.toString().toRequestBody(media), "return=minimal"))
+    }
+
+    suspend fun deleteTask(id: String) = withContext(Dispatchers.IO) {
+        exec(request(base + "tasks?id=eq.$id", "DELETE", prefer = "return=minimal"))
+    }
+
+    suspend fun getGoals(): List<Goal> = withContext(Dispatchers.IO) {
+        val url = base + "goals?select=*&done=is.false&order=created_at.asc"
+        json.decodeFromString(exec(request(url, "GET")))
+    }
+
+    suspend fun setGoalDone(id: String, done: Boolean) = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject {
+            put("done", done)
+            if (done) put("completed_at", Instant.now().toString()) else put("completed_at", JsonNull)
+        }
+        exec(request(base + "goals?id=eq.$id", "PATCH", payload.toString().toRequestBody(media), "return=minimal"))
+    }
+
+    suspend fun getFocusSessions(): List<FocusSession> = withContext(Dispatchers.IO) {
+        val cutoff = Instant.now().minusSeconds(90L * 24 * 3600)
+        val url = base + "focus_sessions?select=*&ended_at=gte.$cutoff&order=ended_at.desc"
+        json.decodeFromString(exec(request(url, "GET")))
+    }
+
+    suspend fun logFocusSession(phase: String, minutes: Int) = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject { put("phase", phase); put("minutes", minutes) }
+        exec(request(base + "focus_sessions", "POST", payload.toString().toRequestBody(media), "return=minimal"))
+    }
+
     suspend fun getWeather(): List<DayWeather> = withContext(Dispatchers.IO) {
         // Open-Meteo: free, no API key. Fixed to Gilbert, AZ.
         val url = "https://api.open-meteo.com/v1/forecast" +

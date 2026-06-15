@@ -14,6 +14,23 @@ data class Task(
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("completed_at") val completedAt: String? = null,
     val category: String? = null,   // 工作 | 运动 | 生活
+    @SerialName("work_section") val workSection: String? = null, // 工作: focus | feature
+)
+
+@Serializable
+data class Goal(
+    val id: String,
+    val title: String,
+    val period: String = "week",    // week | month
+    val done: Boolean = false,
+)
+
+@Serializable
+data class FocusSession(
+    val id: String,
+    val phase: String = "work",     // work | rest
+    val minutes: Int = 0,
+    @SerialName("ended_at") val endedAt: String? = null,
 )
 
 @Serializable

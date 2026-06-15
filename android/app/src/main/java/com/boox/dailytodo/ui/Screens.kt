@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boox.dailytodo.DayWeather
+import com.boox.dailytodo.Goal
 import com.boox.dailytodo.MainViewModel
 import com.boox.dailytodo.Routine
 import com.boox.dailytodo.Task
@@ -133,6 +134,40 @@ fun WeatherDetail(days: List<DayWeather>) {
     Spacer(Modifier.height(8.dp))
 }
 
+private val SECTION_NAMES = listOf("focus" to "🎯 主线", "feature" to "🛠 随手做")
+
+@Composable
+private fun TaskRow(vm: MainViewModel, t: Task, todayStr: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .noRippleClickable { vm.toggleTask(t) }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(if (t.done) "☑" else "☐", fontSize = 26.sp)
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(t.title, fontSize = 18.sp)
+            t.dueDate?.let { due ->
+                val overdue = due < todayStr
+                Text(
+                    (if (overdue) "⚠ 逾期 " else "⏰ ") + due,
+                    fontSize = 13.sp,
+                    fontWeight = if (overdue) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
+    HorizontalDivider(color = Color.Black, thickness = 1.dp)
+}
+
+@Composable
+private fun SubHeader(text: String) {
+    Text(text, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp))
+}
+
 @Composable
 fun TodayScreen(vm: MainViewModel) {
     val today = LocalDate.now()
@@ -144,7 +179,28 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        // 今日待办: 未完成、非备忘、无到期日或已到期 (未来日期的任务等到当天才出现)
+        // 🎯 本周目标
+        if (vm.goals.isNotEmpty()) {
+            Box(Modifier.fillMaxWidth().background(Color(0xFFEEEAFB), RoundedCornerShape(14.dp)).padding(14.dp)) {
+                Column {
+                    Text("🎯 本周目标", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    vm.goals.forEach { g ->
+                        Row(
+                            Modifier.fillMaxWidth().noRippleClickable { vm.toggleGoal(g) }.padding(vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("☐", fontSize = 22.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(g.title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(22.dp))
+        }
+
+        // 今日待办: 未完成、非备忘、无到期日或已到期
         val pending = vm.tasks.filter {
             !it.done && !it.memo && (it.dueDate == null || it.dueDate <= todayStr)
         }
@@ -153,41 +209,23 @@ fun TodayScreen(vm: MainViewModel) {
         if (pending.isEmpty()) {
             Text("今天没有待办 🎉", fontSize = 16.sp)
         } else {
-            val order = listOf("工作", "运动", "生活")
-            val grouped = pending.groupBy { it.category ?: "其他" }
-            val cats = order.filter { grouped.containsKey(it) } +
-                grouped.keys.filter { it !in order }
-            cats.forEach { cat ->
-                Text(
-                    cat,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
-                )
-                grouped.getValue(cat).forEach { t ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .noRippleClickable { vm.toggleTask(t) }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(if (t.done) "☑" else "☐", fontSize = 26.sp)
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(t.title, fontSize = 18.sp)
-                            t.dueDate?.let { due ->
-                                val overdue = due < todayStr
-                                Text(
-                                    (if (overdue) "⚠ 逾期 " else "⏰ ") + due,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (overdue) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = Color.Black, thickness = 1.dp)
+            // 工作: 主线 / 随手做
+            val work = pending.filter { it.category == "工作" }
+            if (work.isNotEmpty()) {
+                Text("工作", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                SECTION_NAMES.forEach { (key, name) ->
+                    val items = work.filter { (it.workSection ?: "") == key }
+                    if (items.isNotEmpty()) { SubHeader(name); items.forEach { TaskRow(vm, it, todayStr) } }
                 }
+                val uncat = work.filter { (it.workSection ?: "") !in listOf("focus", "feature") }
+                if (uncat.isNotEmpty()) { SubHeader("· 未分类"); uncat.forEach { TaskRow(vm, it, todayStr) } }
+            }
+            // 生活 (非工作)
+            val life = pending.filter { it.category != "工作" }
+            if (life.isNotEmpty()) {
+                Text("生活", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
+                Spacer(Modifier.height(2.dp))
+                life.forEach { TaskRow(vm, it, todayStr) }
             }
         }
 
@@ -285,26 +323,38 @@ fun MemoScreen(vm: MainViewModel) {
         if (items.isEmpty()) {
             Text("还没有备忘 📝", fontSize = 16.sp)
         } else {
-            items.forEach { t ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .noRippleClickable { vm.toggleTask(t) }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("☐", fontSize = 26.sp)
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(t.title, fontSize = 18.sp)
-                        val sub = t.dueDate?.let { "⏰ $it" } ?: t.category
-                        sub?.let { Text(it, fontSize = 13.sp) }
-                    }
-                }
-                HorizontalDivider(color = Color.Black, thickness = 1.dp)
+            val life = items.filter { it.category != "工作" }
+            val work = items.filter { it.category == "工作" }
+            if (life.isNotEmpty()) {
+                SubHeader("生活")
+                life.forEach { MemoRow(vm, it) }
+            }
+            if (work.isNotEmpty()) {
+                SubHeader("工作")
+                work.forEach { MemoRow(vm, it) }
             }
         }
     }
+}
+
+@Composable
+private fun MemoRow(vm: MainViewModel, t: Task) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .noRippleClickable { vm.toggleTask(t) }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("☐", fontSize = 26.sp)
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(t.title, fontSize = 18.sp)
+            val sub = t.dueDate?.let { "⏰ $it" } ?: t.category
+            sub?.let { Text(it, fontSize = 13.sp) }
+        }
+    }
+    HorizontalDivider(color = Color.Black, thickness = 1.dp)
 }
 
 private enum class HeatState { MET, MISS, BLANK }

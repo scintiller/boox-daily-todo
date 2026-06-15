@@ -19,6 +19,10 @@ class MainViewModel : ViewModel() {
         private set
     var logs by mutableStateOf<List<RoutineLog>>(emptyList())
         private set
+    var goals by mutableStateOf<List<Goal>>(emptyList())
+        private set
+    var focusSessions by mutableStateOf<List<FocusSession>>(emptyList())
+        private set
     var weather by mutableStateOf<List<DayWeather>>(emptyList())
         private set
     var loading by mutableStateOf(false)
@@ -45,6 +49,8 @@ class MainViewModel : ViewModel() {
                 tasks = repo.getTasks()
                 routines = repo.getRoutines()
                 logs = repo.getLogsSince(since)
+                goals = repo.getGoals()
+                focusSessions = repo.getFocusSessions()
             } catch (e: Exception) {
                 error = e.message ?: "网络错误"
             } finally {
@@ -67,6 +73,41 @@ class MainViewModel : ViewModel() {
             } catch (e: Exception) {
                 error = e.message ?: "操作失败"
             }
+        }
+    }
+
+    fun toggleGoal(g: Goal) {
+        viewModelScope.launch {
+            try { repo.setGoalDone(g.id, !g.done); refresh() }
+            catch (e: Exception) { error = e.message ?: "操作失败" }
+        }
+    }
+
+    fun setTaskSection(t: Task, section: String) {
+        viewModelScope.launch {
+            try { repo.setTaskSection(t.id, section); refresh() }
+            catch (e: Exception) { error = e.message ?: "操作失败" }
+        }
+    }
+
+    fun moveToMemo(t: Task) {
+        viewModelScope.launch {
+            try { repo.setTaskMemo(t.id, true); refresh() }
+            catch (e: Exception) { error = e.message ?: "操作失败" }
+        }
+    }
+
+    fun moveToToday(t: Task) {
+        viewModelScope.launch {
+            try { repo.setTaskMemo(t.id, false); refresh() }
+            catch (e: Exception) { error = e.message ?: "操作失败" }
+        }
+    }
+
+    fun deleteTask(t: Task) {
+        viewModelScope.launch {
+            try { repo.deleteTask(t.id); refresh() }
+            catch (e: Exception) { error = e.message ?: "操作失败" }
         }
     }
 
