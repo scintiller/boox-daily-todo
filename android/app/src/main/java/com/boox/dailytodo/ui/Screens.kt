@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -137,39 +140,58 @@ fun WeatherDetail(days: List<DayWeather>) {
 private val SECTION_NAMES = listOf("focus" to "🎯 主线", "feature" to "🛠 随手做")
 
 @Composable
-private fun TaskRow(vm: MainViewModel, t: Task, todayStr: String) {
+private fun CircleCheck(done: Boolean, color: Color, dim: Dp = 24.dp) {
+    if (done) {
+        Box(Modifier.size(dim).background(color, CircleShape), contentAlignment = Alignment.Center) {
+            Text("✓", color = Color.White, fontSize = (dim.value * 0.62f).sp, fontWeight = FontWeight.Bold)
+        }
+    } else {
+        Box(Modifier.size(dim).border(2.dp, color, CircleShape))
+    }
+}
+
+/** iOS-style card row. */
+@Composable
+private fun TaskRow(vm: MainViewModel, t: Task, todayStr: String, accent: Color) {
+    val on = t.done || vm.completingIds.contains(t.id)
     Row(
         Modifier
             .fillMaxWidth()
-            .noRippleClickable { vm.toggleTask(t) }
-            .padding(vertical = 12.dp),
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(CardBg)
+            .noRippleClickable { if (!on) vm.toggleTask(t) }
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(if (t.done) "☑" else "☐", fontSize = 26.sp)
+        CircleCheck(on, accent)
         Spacer(Modifier.width(12.dp))
-        Column {
-            Text(t.title, fontSize = 18.sp)
+        Column(Modifier.weight(1f)) {
+            Text(
+                t.title, fontSize = 17.sp,
+                color = if (on) InkSecondary else InkPrimary,
+                textDecoration = if (on) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
+            )
             t.dueDate?.let { due ->
                 val overdue = due < todayStr
                 Text(
                     (if (overdue) "⚠ 逾期 " else "⏰ ") + due,
-                    fontSize = 13.sp,
+                    fontSize = 13.sp, color = InkSecondary,
                     fontWeight = if (overdue) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }
     }
-    HorizontalDivider(color = Color.Black, thickness = 1.dp)
 }
 
 @Composable
 private fun SubHeader(text: String) {
-    Text(text, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 12.dp, bottom = 2.dp))
+    Text(text, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = InkSecondary,
+        modifier = Modifier.padding(top = 14.dp, bottom = 2.dp))
 }
 
 @Composable
-fun TodayScreen(vm: MainViewModel) {
+fun TodayScreen(vm: MainViewModel, pomo: PomodoroController) {
     val today = LocalDate.now()
     val todayStr = today.toString()
 
@@ -179,20 +201,24 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        // 🍅 番茄钟
+        PomodoroBar(pomo)
+        Spacer(Modifier.height(16.dp))
+
         // 🎯 本周目标
         if (vm.goals.isNotEmpty()) {
-            Box(Modifier.fillMaxWidth().background(Color(0xFFEEEAFB), RoundedCornerShape(14.dp)).padding(14.dp)) {
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(GoalBg).padding(16.dp)) {
                 Column {
-                    Text("🎯 本周目标", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
+                    Text("🎯 本周目标", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = InkSecondary)
+                    Spacer(Modifier.height(6.dp))
                     vm.goals.forEach { g ->
                         Row(
-                            Modifier.fillMaxWidth().noRippleClickable { vm.toggleGoal(g) }.padding(vertical = 7.dp),
+                            Modifier.fillMaxWidth().noRippleClickable { vm.toggleGoal(g) }.padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("☐", fontSize = 22.sp)
-                            Spacer(Modifier.width(10.dp))
-                            Text(g.title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                            CircleCheck(false, AccentIndigo, 22.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(g.title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = InkPrimary)
                         }
                     }
                 }
@@ -215,17 +241,17 @@ fun TodayScreen(vm: MainViewModel) {
                 Text("工作", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
                 SECTION_NAMES.forEach { (key, name) ->
                     val items = work.filter { (it.workSection ?: "") == key }
-                    if (items.isNotEmpty()) { SubHeader(name); items.forEach { TaskRow(vm, it, todayStr) } }
+                    if (items.isNotEmpty()) { SubHeader(name); items.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) } }
                 }
                 val uncat = work.filter { (it.workSection ?: "") !in listOf("focus", "feature") }
-                if (uncat.isNotEmpty()) { SubHeader("· 未分类"); uncat.forEach { TaskRow(vm, it, todayStr) } }
+                if (uncat.isNotEmpty()) { SubHeader("· 未分类"); uncat.forEach { TaskRow(vm, it, todayStr, AccentIndigo) } }
             }
             // 生活 (非工作)
             val life = pending.filter { it.category != "工作" }
             if (life.isNotEmpty()) {
                 Text("生活", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
                 Spacer(Modifier.height(2.dp))
-                life.forEach { TaskRow(vm, it, todayStr) }
+                life.forEach { TaskRow(vm, it, todayStr, AccentGreen) }
             }
         }
 
@@ -245,15 +271,17 @@ fun TodayScreen(vm: MainViewModel) {
                 Row(
                     Modifier
                         .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(CardBg)
                         .noRippleClickable { vm.toggleRoutineToday(r) }
-                        .padding(vertical = 12.dp),
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(if (done) "✔" else "☐", fontSize = 26.sp)
+                    CircleCheck(done, AccentGreen)
                     Spacer(Modifier.width(12.dp))
-                    Text("${r.icon ?: ""}${r.name}", fontSize = 18.sp)
+                    Text("${r.icon ?: ""}${r.name}", fontSize = 17.sp, color = InkPrimary)
                 }
-                HorizontalDivider(color = Color.Black, thickness = 1.dp)
             }
         }
 
@@ -288,16 +316,18 @@ fun TodayScreen(vm: MainViewModel) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(CardBg)
                                 .noRippleClickable { vm.toggleTask(t) }
-                                .padding(vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("☑", fontSize = 26.sp)
+                            CircleCheck(true, InkSecondary, 22.dp)
                             Spacer(Modifier.width(12.dp))
-                            Text(t.title, fontSize = 18.sp, modifier = Modifier.weight(1f))
-                            Text(zdt.format(HHMM), fontSize = 14.sp)
+                            Text(t.title, fontSize = 16.sp, color = InkSecondary, modifier = Modifier.weight(1f))
+                            Text(zdt.format(HHMM), fontSize = 13.sp, color = InkSecondary)
                         }
-                        HorizontalDivider(color = Color.Black, thickness = 1.dp)
                     }
                 }
             }
@@ -339,22 +369,25 @@ fun MemoScreen(vm: MainViewModel) {
 
 @Composable
 private fun MemoRow(vm: MainViewModel, t: Task) {
+    val accent = if (t.category == "工作") sectionAccent(t.workSection) else AccentGreen
     Row(
         Modifier
             .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(CardBg)
             .noRippleClickable { vm.toggleTask(t) }
-            .padding(vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("☐", fontSize = 26.sp)
+        CircleCheck(false, accent)
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(t.title, fontSize = 18.sp)
+            Text(t.title, fontSize = 17.sp, color = InkPrimary)
             val sub = t.dueDate?.let { "⏰ $it" } ?: t.category
-            sub?.let { Text(it, fontSize = 13.sp) }
+            sub?.let { Text(it, fontSize = 13.sp, color = InkSecondary) }
         }
     }
-    HorizontalDivider(color = Color.Black, thickness = 1.dp)
 }
 
 private enum class HeatState { MET, MISS, BLANK }
@@ -368,6 +401,54 @@ private fun HeatCell(state: HeatState, dim: androidx.compose.ui.unit.Dp) {
         HeatState.MET -> Box(m.background(Color.Black, RoundedCornerShape(5.dp)))
         HeatState.MISS -> Box(m.border(1.5.dp, Color.Black, RoundedCornerShape(5.dp)))
         HeatState.BLANK -> Box(m.border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(5.dp)))
+    }
+}
+
+private fun fmtMin(m: Int) = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+
+@Composable
+private fun FocusSummaryCard(vm: MainViewModel) {
+    val zone = ZoneId.systemDefault()
+    val byDay = HashMap<LocalDate, Int>()
+    vm.focusSessions.filter { it.phase == "work" }.forEach { s ->
+        s.endedAt?.let { iso ->
+            runCatching { OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDate() }
+                .getOrNull()?.let { d -> byDay[d] = (byDay[d] ?: 0) + s.minutes }
+        }
+    }
+    val today = LocalDate.now()
+    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val weekMin = byDay.filterKeys { !it.isBefore(monday) }.values.sum()
+    val total = vm.focusSessions.count { it.phase == "work" }
+    val todayMin = byDay[today] ?: 0
+    val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
+    val maxMin = (days.maxOfOrNull { byDay[it] ?: 0 } ?: 0).coerceAtLeast(1)
+
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBg).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("🍅 专注", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = InkPrimary)
+            Spacer(Modifier.weight(1f))
+            Text("本周 ${fmtMin(weekMin)} · 累计 $total 🍅", fontSize = 12.sp, color = InkSecondary)
+        }
+        Text("今日 ${fmtMin(todayMin)}", fontSize = 14.sp, color = AccentIndigo, modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth().height(120.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            days.forEach { d ->
+                val mins = byDay[d] ?: 0
+                val frac = (mins.toFloat() / maxMin).coerceIn(0.02f, 1f)
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.height(92.dp).width(22.dp), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.fillMaxHeight(frac).width(22.dp).clip(RoundedCornerShape(4.dp)).background(AccentIndigo))
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text("${d.monthValue}/${d.dayOfMonth}", fontSize = 10.sp, color = InkSecondary)
+                }
+            }
+        }
     }
 }
 
@@ -386,6 +467,8 @@ fun StatsScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        FocusSummaryCard(vm)
+        Spacer(Modifier.height(22.dp))
         Text("坚持度（最近 $weeks 周）", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

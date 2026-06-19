@@ -52,6 +52,10 @@ data class RoutineLog(
     val done: Boolean = true,
 )
 
+/** Trigger for the completion celebration overlay. effect 0..<N picks the effect. */
+data class CelebrationEvent(val id: Int, val effect: Int)
+const val CELEBRATION_COUNT = 6
+
 /** One day of forecast (from Open-Meteo). */
 data class DayWeather(
     val date: String,      // YYYY-MM-DD

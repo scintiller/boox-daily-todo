@@ -20,15 +20,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.boox.dailytodo.ui.CelebrationOverlay
 import com.boox.dailytodo.ui.DailyTodoTheme
 import com.boox.dailytodo.ui.MemoScreen
+import com.boox.dailytodo.ui.PomodoroController
 import com.boox.dailytodo.ui.StatsScreen
 import com.boox.dailytodo.ui.TodayScreen
 import com.boox.dailytodo.ui.WeatherAlert
@@ -66,7 +70,11 @@ fun AppRoot(vm: MainViewModel) {
     var weatherExpanded by remember { mutableStateOf(false) }
     val today = LocalDate.now()
     val header = "${today} ${WEEKDAY_CN[today.dayOfWeek.value]}"
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    val pomo = remember { PomodoroController(scope, ctx) { phase, mins -> vm.logFocus(phase, mins) } }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         // Header: date + today's weather (tap to expand 3-day) + manual refresh
         val wx = todayWeatherSummary(vm.weather)
@@ -113,11 +121,13 @@ fun AppRoot(vm: MainViewModel) {
 
         Box(Modifier.weight(1f)) {
             when (tab) {
-                0 -> TodayScreen(vm)
+                0 -> TodayScreen(vm, pomo)
                 1 -> StatsScreen(vm)
                 2 -> MemoScreen(vm)
             }
         }
+    }
+    vm.celebration?.let { ev -> CelebrationOverlay(ev) { vm.clearCelebration() } }
     }
 }
 

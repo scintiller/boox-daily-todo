@@ -29,6 +29,11 @@ class MainViewModel : ViewModel() {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    var completingIds by mutableStateOf<Set<String>>(emptySet())   // struck-through, mid-celebration
+        private set
+    var celebration by mutableStateOf<CelebrationEvent?>(null)
+        private set
+    private var celebCounter = 0
 
     init {
         refresh()
@@ -66,13 +71,31 @@ class MainViewModel : ViewModel() {
     }
 
     fun toggleTask(t: Task) {
-        viewModelScope.launch {
-            try {
-                repo.setTaskDone(t.id, !t.done)
-                refresh()
-            } catch (e: Exception) {
-                error = e.message ?: "操作失败"
+        if (!t.done) {
+            // 1) strike through in place, 2) celebrate, 3) after a beat move to 已完成
+            completingIds = completingIds + t.id
+            celebCounter += 1
+            celebration = CelebrationEvent(celebCounter, kotlin.random.Random.nextInt(CELEBRATION_COUNT))
+            viewModelScope.launch {
+                delay(850)
+                completingIds = completingIds - t.id
+                try { repo.setTaskDone(t.id, true); refresh() }
+                catch (e: Exception) { error = e.message ?: "操作失败" }
             }
+        } else {
+            viewModelScope.launch {
+                try { repo.setTaskDone(t.id, false); refresh() }
+                catch (e: Exception) { error = e.message ?: "操作失败" }
+            }
+        }
+    }
+
+    fun clearCelebration() { celebration = null }
+
+    fun logFocus(phase: String, minutes: Int) {
+        viewModelScope.launch {
+            try { repo.logFocusSession(phase, minutes); refresh() }
+            catch (e: Exception) { error = e.message ?: "操作失败" }
         }
     }
 
