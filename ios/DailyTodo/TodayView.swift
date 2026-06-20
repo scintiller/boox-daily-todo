@@ -8,6 +8,7 @@ struct TodayView: View {
     @State private var editing: TodoTask?
     @State private var showStats = false
     @State private var showGoals = false
+    @State private var dropTarget: String? = nil   // section currently hovered while dragging
 
     private var today: String { Cal.todayString }
     private var yesterday: String { Cal.string(Cal.add(days: -1, to: Date())) }
@@ -19,36 +20,26 @@ struct TodayView: View {
     var body: some View {
         VStack(spacing: 0) {
             PomodoroBar(pomo: pomo)
-
             topButtons
-
             // 工作/生活 toggle on the left
-            HStack {
-                bucketToggle
-                Spacer()
-            }
-            .padding(.horizontal)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
+            HStack { bucketToggle; Spacer() }
+                .padding(.horizontal).padding(.top, 12).padding(.bottom, 6)
 
-            List {
-                if bucket == 0 { workContent } else { lifeContent }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if bucket == 0 { workContent } else { lifeContent }
+                }
+                .padding(.bottom, 28)
             }
-            .listStyle(.plain)
         }
         .onAppear { style = TaskStyle.fromArgs() }
         .sheet(item: $editing) { t in
-            EditTaskView(task: t,
-                         onSave: { store.updateTask($0) },
-                         onDelete: { store.deleteTask(t) })
+            EditTaskView(task: t, onSave: { store.updateTask($0) }, onDelete: { store.deleteTask(t) })
         }
         .sheet(isPresented: $showStats) {
-            NavigationStack { StatsView(store: store) }
-                .presentationDragIndicator(.visible)
+            NavigationStack { StatsView(store: store) }.presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showGoals) {
-            GoalsSheet(store: store)
-        }
+        .sheet(isPresented: $showGoals) { GoalsSheet(store: store) }
     }
 
     private var topButtons: some View {
@@ -96,14 +87,12 @@ struct TodayView: View {
     // MARK: content
     @ViewBuilder private var workContent: some View {
         let pending = store.tasks.filter { $0.category == "工作" && isPending($0) }
-        // Always show all 3 sections as drop targets (长按任务可拖到别的分区)
         ForEach(WorkSections.order, id: \.self) { key in
             let items = pending.filter { ($0.workSection ?? "") == key }
             sectionHeader(key)
             if items.isEmpty {
                 dropHint(key)
             } else if key == "feature" {
-                // 随手做 split into P1 (starred 🌟) / P2 (rest)
                 let p1 = items.filter { $0.title.contains("🌟") }
                 let p2 = items.filter { !$0.title.contains("🌟") }
                 if !p1.isEmpty { prioHeader("P1"); ForEach(p1) { t in baseCell(t, section: key) } }
@@ -125,7 +114,6 @@ struct TodayView: View {
         if pending.isEmpty { emptyRow("生活没有待办 🎉") }
         ForEach(pending) { t in baseCell(t) }
         subHeader("今日 Routine")
-        // anytime habits: show all, check off whenever you do them
         if store.routines.isEmpty { emptyRow("还没有 routine") }
         ForEach(store.routines) { r in routineCell(r) }
         completedRows(work: false)
@@ -141,7 +129,7 @@ struct TodayView: View {
                 let items = doneItems.filter { Cal.string($0.0) == day }.sorted { $0.0 > $1.0 }
                 if !items.isEmpty {
                     Text(label).font(.caption).bold().foregroundColor(.secondary)
-                        .plainRow(EdgeInsets(top: 8, leading: 16, bottom: 2, trailing: 16))
+                        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 2)
                     ForEach(items, id: \.1.id) { date, t in
                         HStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(.secondary)
@@ -149,10 +137,9 @@ struct TodayView: View {
                             Spacer()
                             Text(Cal.hourMinute(date)).font(.caption).foregroundColor(.secondary)
                         }
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 10).padding(.horizontal, 16)
                         .contentShape(Rectangle())
                         .onTapGesture { store.toggleTask(t) }
-                        .plainRow(rowInsets)
                     }
                 }
             }
@@ -163,30 +150,54 @@ struct TodayView: View {
     @ViewBuilder private func baseCell(_ t: TodoTask, section: String? = nil) -> some View {
         rowContent(t, accent: sectionAccent(t.category == "工作" ? t.workSection : "life"))
             .contentShape(Rectangle())
-            .onTapGesture { editing = t }    // tap row → edit (checkbox handles complete)
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button { store.moveToMemo(t) } label: { Label("备忘", systemImage: "tray.and.arrow.down.fill") }.tint(.indigo)
+            .onTapGesture { editing = t }
+            .contextMenu { rowMenu(t, section) }
+            .modifier(WorkDragDrop(id: t.id, section: section, move: moveDropped))
+            .padding(.horizontal, 16).padding(.vertical, 5)
+    }
+
+    @ViewBuilder private func rowMenu(_ t: TodoTask, _ section: String?) -> some View {
+        if let section {
+            ForEach(WorkSections.order.filter { $0 != section }, id: \.self) { key in
+                Button { store.setTaskSection(t, key) } label: {
+                    Label("移到 \(WorkSections.name[key] ?? key)", systemImage: "arrow.right.circle")
+                }
             }
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: .destructive) { store.deleteTask(t) } label: { Label("删除", systemImage: "trash.fill") }
+            Divider()
+        }
+        Button { store.moveToMemo(t) } label: { Label("移到备忘", systemImage: "tray.and.arrow.down") }
+        Button(role: .destructive) { store.deleteTask(t) } label: { Label("删除", systemImage: "trash") }
+    }
+
+    private func moveDropped(_ ids: [String], _ key: String) {
+        for id in ids {
+            if let t = store.tasks.first(where: { $0.id == id }), (t.workSection ?? "") != key {
+                store.setTaskSection(t, key)
             }
-            .modifier(SectionMenu(section: section) { key in store.setTaskSection(t, key) })
-            .listRowSeparator(style == .bold ? .automatic : .hidden)
-            .listRowInsets(rowInsets)
-            .listRowBackground(Color.clear)
+        }
     }
 
     private func sectionHeader(_ key: String) -> some View {
         Text(WorkSections.name[key] ?? key)
-            .font(.subheadline).bold().foregroundColor(.secondary)
+            .font(.subheadline).bold()
+            .foregroundColor(dropTarget == key ? .indigo : .secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
+            .contentShape(Rectangle())
+            .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
+            .dropDestination(for: String.self, action: { ids, _ in moveDropped(ids, key); return true },
+                             isTargeted: { hovering in dropTarget = hovering ? key : (dropTarget == key ? nil : dropTarget) })
     }
 
     private func dropHint(_ key: String) -> some View {
-        Text("（空 · 长按别的任务可移过来）").font(.caption).foregroundColor(Color(.tertiaryLabel))
+        Text("拖任务到这里").font(.caption).foregroundColor(dropTarget == key ? .indigo : Color(.tertiaryLabel))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .plainRow(EdgeInsets(top: 2, leading: 16, bottom: 6, trailing: 16))
+            .padding(.vertical, 12).padding(.horizontal, 14)
+            .background(RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(dropTarget == key ? Color.indigo : Color(.systemGray4),
+                              style: StrokeStyle(lineWidth: 1.5, dash: [4])))
+            .padding(.horizontal, 16).padding(.bottom, 6)
+            .dropDestination(for: String.self, action: { ids, _ in moveDropped(ids, key); return true },
+                             isTargeted: { hovering in dropTarget = hovering ? key : (dropTarget == key ? nil : dropTarget) })
     }
 
     @ViewBuilder private func routineCell(_ r: Routine) -> some View {
@@ -196,60 +207,31 @@ struct TodayView: View {
             Text("\(r.icon ?? "")\(r.name)").font(.body)
             Spacer()
         }
-        .padding(.vertical, style == .card ? 14 : 11)
+        .padding(.vertical, 12).padding(.horizontal, 16)
         .contentShape(Rectangle())
         .onTapGesture { store.toggleRoutineToday(r) }
-        .plainRow(rowInsets, separator: style == .bold)
     }
 
-    // MARK: row visuals per style
+    // MARK: row visuals
     @ViewBuilder private func rowContent(_ t: TodoTask, accent: Color) -> some View {
-        switch style {
-        case .minimal:
-            HStack(alignment: .center, spacing: 12) {
-                checkbox(t, color: .secondary, big: false)
-                VStack(alignment: .leading, spacing: 3) { titleText(t); metaText(t) }
-                Spacer()
-            }
-            .padding(.vertical, 13)
-        case .card:
-            HStack(alignment: .center, spacing: 12) {
-                checkbox(t, color: accent, big: false)
-                VStack(alignment: .leading, spacing: 3) { titleText(t); metaText(t) }
-                Spacer()
-            }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
-            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
-        case .accentBar:
-            HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 2).fill(accent).frame(width: 4)
-                HStack(alignment: .center, spacing: 10) {
-                    checkbox(t, color: accent, big: false)
-                    VStack(alignment: .leading, spacing: 2) { titleText(t); metaText(t) }
-                    Spacer()
-                }
-                .padding(.vertical, 10).padding(.leading, 11).padding(.trailing, 8)
-            }
-            .background(RoundedRectangle(cornerRadius: 9).fill(accent.opacity(0.07)))
-        case .bold:
-            HStack(alignment: .center, spacing: 14) {
-                checkbox(t, color: accent, big: true)
-                VStack(alignment: .leading, spacing: 3) { titleText(t, weight: .medium); metaText(t) }
-                Spacer()
-            }
-            .padding(.vertical, 11)
+        HStack(alignment: .center, spacing: 12) {
+            checkbox(t, color: accent, big: false)
+            VStack(alignment: .leading, spacing: 3) { titleText(t); metaText(t) }
+            Spacer()
         }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
     }
 
     private func checkbox(_ t: TodoTask, color: Color, big: Bool) -> some View {
         let on = t.done || store.completingIds.contains(t.id)
         return Image(systemName: on ? "checkmark.circle.fill" : "circle")
-            .font(big ? .title : .title2)
+            .font(.title2)
             .foregroundStyle(color)
-            .frame(width: 36, height: 36)        // bigger hit area
+            .frame(width: 36, height: 36)
             .contentShape(Rectangle())
-            .onTapGesture { if !on { store.toggleTask(t) } } // tap circle → complete
+            .onTapGesture { if !on { store.toggleTask(t) } }
     }
 
     private func titleText(_ t: TodoTask, weight: Font.Weight = .regular) -> some View {
@@ -265,25 +247,19 @@ struct TodayView: View {
     // MARK: small helpers
     private func subHeader(_ s: String) -> some View {
         Text(s).font(.subheadline).bold().foregroundColor(.secondary)
-            .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
     }
 
     private func prioHeader(_ s: String) -> some View {
         Text(s).font(.caption).bold().foregroundColor(.indigo)
-            .plainRow(EdgeInsets(top: 8, leading: 28, bottom: 2, trailing: 16))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 28).padding(.trailing, 16).padding(.top, 8).padding(.bottom, 2)
     }
 
     private func emptyRow(_ s: String) -> some View {
         Text(s).foregroundColor(.secondary)
-            .plainRow(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-    }
-
-    private var rowInsets: EdgeInsets {
-        switch style {
-        case .card: return EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16)
-        case .accentBar: return EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)
-        default: return EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
-        }
+            .padding(.horizontal, 16).padding(.vertical, 8)
     }
 
     private func dueLabel(_ t: TodoTask) -> String? {
@@ -292,11 +268,19 @@ struct TodayView: View {
     }
 }
 
-private extension View {
-    func plainRow(_ insets: EdgeInsets, separator: Bool = false) -> some View {
-        self.listRowSeparator(separator ? .automatic : .hidden)
-            .listRowInsets(insets)
-            .listRowBackground(Color.clear)
+/// Adds finger-drag (draggable) + drop target to a work row. No-op for life rows.
+private struct WorkDragDrop: ViewModifier {
+    let id: String
+    let section: String?
+    let move: ([String], String) -> Void
+    func body(content: Content) -> some View {
+        if let section {
+            content
+                .draggable(id)
+                .dropDestination(for: String.self) { ids, _ in move(ids, section); return true }
+        } else {
+            content
+        }
     }
 }
 
@@ -328,25 +312,5 @@ struct GoalsSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-    }
-}
-
-/// Long-press menu to move a work task to another section. No-op for life rows.
-private struct SectionMenu: ViewModifier {
-    let section: String?
-    let move: (String) -> Void
-    func body(content: Content) -> some View {
-        if let section {
-            content.contextMenu {
-                Text("移到分区")
-                ForEach(WorkSections.order.filter { $0 != section }, id: \.self) { key in
-                    Button { move(key) } label: {
-                        Label("移到 \(WorkSections.name[key] ?? key)", systemImage: "arrow.right.circle")
-                    }
-                }
-            }
-        } else {
-            content
-        }
     }
 }
