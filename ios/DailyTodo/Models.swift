@@ -53,11 +53,13 @@ struct RoutineLog: Codable, Identifiable, Equatable {
 struct Goal: Codable, Identifiable, Equatable {
     let id: String
     var title: String
-    var period: String           // week | month
+    var period: String = "week"
     var done: Bool
+    var targetDate: String?      // 预期完成时间 YYYY-MM-DD
 
     enum CodingKeys: String, CodingKey {
         case id, title, period, done
+        case targetDate = "target_date"
     }
 }
 

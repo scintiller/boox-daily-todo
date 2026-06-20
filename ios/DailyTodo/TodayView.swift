@@ -44,11 +44,11 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showPomo) {
             NavigationStack {
-                ScrollView { PomodoroBar(pomo: pomo, startExpanded: true).padding(.top, 8) }
+                ScrollView { PomodoroBar(pomo: pomo, startExpanded: true).padding(.top, 12) }
                     .navigationTitle("🍅 番茄钟").navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showPomo = false } } }
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showStats) {
@@ -290,6 +290,14 @@ private struct WorkDragDrop: ViewModifier {
     }
 }
 
+private func goalCountdown(_ ymd: String) -> String {
+    guard let d = Cal.date(ymd) else { return "" }
+    let days = Cal.cal.dateComponents([.day], from: Date(), to: d).day ?? 0
+    if days > 0 { return "  · 还剩 \(days) 天" }
+    if days == 0 { return "  · 今天" }
+    return "  · 已过期"
+}
+
 /// 目标 sheet — opened from the 目标 button.
 struct GoalsSheet: View {
     @ObservedObject var store: Store
@@ -302,17 +310,24 @@ struct GoalsSheet: View {
                     Text("还没有目标 🎯").foregroundColor(.secondary)
                 } else {
                     ForEach(active) { g in
-                        HStack(spacing: 12) {
+                        HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "circle").font(.title2).foregroundStyle(.indigo)
                                 .frame(width: 36, height: 36).contentShape(Rectangle())
                                 .onTapGesture { store.toggleGoal(g) }
-                            Text(g.title).font(.body).fontWeight(.medium)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(g.title).font(.body).fontWeight(.medium)
+                                if let d = g.targetDate {
+                                    Text("🗓 预期 \(d)" + goalCountdown(d))
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
                             Spacer()
                         }
+                        .padding(.vertical, 4)
                     }
                 }
             }
-            .navigationTitle("🎯 本周目标")
+            .navigationTitle("🎯 目标")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
         }
