@@ -22,6 +22,8 @@ struct TodayView: View {
     @State private var bucket = 0           // 0=工作 1=生活
     @State private var style: TaskStyle = .card
     @State private var editing: TodoTask?
+    @State private var showStats = false
+    @State private var showGoals = false
 
     private var today: String { Cal.todayString }
     private var yesterday: String { Cal.string(Cal.add(days: -1, to: Date())) }
@@ -34,16 +36,15 @@ struct TodayView: View {
         VStack(spacing: 0) {
             PomodoroBar(pomo: pomo)
 
-            if !store.goals.isEmpty { goalsCard }
+            topButtons
 
-            // 待办 + inline 工作/生活 toggle (no second-layer tab row)
+            // 工作/生活 toggle on the left
             HStack {
-                Text("待办").font(.title2).bold()
-                Spacer()
                 bucketToggle
+                Spacer()
             }
             .padding(.horizontal)
-            .padding(.top, 10)
+            .padding(.top, 12)
             .padding(.bottom, 6)
 
             List {
@@ -57,24 +58,38 @@ struct TodayView: View {
                          onSave: { store.updateTask($0) },
                          onDelete: { store.deleteTask(t) })
         }
+        .sheet(isPresented: $showStats) {
+            NavigationStack { StatsView(store: store) }
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showGoals) {
+            GoalsSheet(store: store)
+        }
     }
 
-    private var goalsCard: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text("🎯 本周目标").font(.subheadline).bold().foregroundColor(.secondary)
-            ForEach(store.goals) { g in
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "circle").font(.title3).foregroundStyle(.indigo)
-                        .frame(width: 30, height: 26).contentShape(Rectangle())
-                        .onTapGesture { store.toggleGoal(g) }
-                    Text(g.title).font(.callout).fontWeight(.medium)
-                    Spacer()
+    private var topButtons: some View {
+        HStack(spacing: 12) {
+            Button { showStats = true } label: {
+                Label("坚持度", systemImage: "chart.bar.xaxis")
+                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.primary)
+                    .frame(maxWidth: .infinity).padding(.vertical, 13)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+            }.buttonStyle(.plain)
+            Button { showGoals = true } label: {
+                HStack(spacing: 6) {
+                    Label("目标", systemImage: "target")
+                        .font(.subheadline).fontWeight(.semibold).foregroundColor(.primary)
+                    let n = store.goals.filter { !$0.done }.count
+                    if n > 0 {
+                        Text("\(n)").font(.caption2).bold().foregroundColor(.white)
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background(Capsule().fill(Color.indigo))
+                    }
                 }
-            }
+                .frame(maxWidth: .infinity).padding(.vertical, 13)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+            }.buttonStyle(.plain)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.indigo.opacity(0.09)))
         .padding(.horizontal).padding(.top, 8)
     }
 
@@ -103,6 +118,12 @@ struct TodayView: View {
             sectionHeader(key)
             if items.isEmpty {
                 dropHint(key)
+            } else if key == "feature" {
+                // 随手做 split into P1 (starred 🌟) / P2 (rest)
+                let p1 = items.filter { $0.title.contains("🌟") }
+                let p2 = items.filter { !$0.title.contains("🌟") }
+                if !p1.isEmpty { prioHeader("P1"); ForEach(p1) { t in baseCell(t, section: key) } }
+                if !p2.isEmpty { prioHeader("P2"); ForEach(p2) { t in baseCell(t, section: key) } }
             } else {
                 ForEach(items) { t in baseCell(t, section: key) }
             }
@@ -279,6 +300,11 @@ struct TodayView: View {
             .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
     }
 
+    private func prioHeader(_ s: String) -> some View {
+        Text(s).font(.caption).bold().foregroundColor(.indigo)
+            .plainRow(EdgeInsets(top: 8, leading: 28, bottom: 2, trailing: 16))
+    }
+
     private func emptyRow(_ s: String) -> some View {
         Text(s).foregroundColor(.secondary)
             .plainRow(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -303,6 +329,37 @@ private extension View {
         self.listRowSeparator(separator ? .automatic : .hidden)
             .listRowInsets(insets)
             .listRowBackground(Color.clear)
+    }
+}
+
+/// 目标 sheet — opened from the 目标 button.
+struct GoalsSheet: View {
+    @ObservedObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                let active = store.goals.filter { !$0.done }
+                if active.isEmpty {
+                    Text("还没有目标 🎯").foregroundColor(.secondary)
+                } else {
+                    ForEach(active) { g in
+                        HStack(spacing: 12) {
+                            Image(systemName: "circle").font(.title2).foregroundStyle(.indigo)
+                                .frame(width: 36, height: 36).contentShape(Rectangle())
+                                .onTapGesture { store.toggleGoal(g) }
+                            Text(g.title).font(.body).fontWeight(.medium)
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("🎯 本周目标")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 

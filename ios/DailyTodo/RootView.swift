@@ -47,8 +47,7 @@ struct RootView: View {
 
             Picker("", selection: $tab) {
                 Text("今日").tag(0)
-                Text("坚持度").tag(1)
-                Text("备忘").tag(2)
+                Text("备忘").tag(1)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -58,7 +57,6 @@ struct RootView: View {
 
             switch tab {
             case 0: TodayView(store: store, pomo: pomo)
-            case 1: StatsView(store: store)
             default: MemoView(store: store)
             }
         }
