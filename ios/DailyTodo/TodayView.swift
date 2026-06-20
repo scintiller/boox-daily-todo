@@ -1,20 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
-
-/// Load dropped task ids (NSString) and move them into `key`.
-private func acceptDrop(_ providers: [NSItemProvider], _ key: String,
-                        _ move: @escaping ([String], String) -> Void) -> Bool {
-    var any = false
-    for p in providers where p.canLoadObject(ofClass: NSString.self) {
-        any = true
-        _ = p.loadObject(ofClass: NSString.self) { obj, _ in
-            if let s = obj as? String {
-                DispatchQueue.main.async { move([s], key) }
-            }
-        }
-    }
-    return any
-}
 
 struct TodayView: View {
     @ObservedObject var store: Store
@@ -186,38 +170,22 @@ struct TodayView: View {
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(role: .destructive) { store.deleteTask(t) } label: { Label("删除", systemImage: "trash.fill") }
             }
-            .modifier(SectionDragDrop(id: t.id, section: section, move: moveToSection))
+            .modifier(SectionMenu(section: section) { key in store.setTaskSection(t, key) })
             .listRowSeparator(style == .bold ? .automatic : .hidden)
             .listRowInsets(rowInsets)
             .listRowBackground(Color.clear)
     }
 
-    /// Move dragged task ids into a work section.
-    private func moveToSection(_ ids: [String], _ key: String) {
-        for id in ids {
-            if let t = store.tasks.first(where: { $0.id == id }), (t.workSection ?? "") != key {
-                store.setTaskSection(t, key)
-            }
-        }
-    }
-
-    /// Section sub-header that's also a drop target.
     private func sectionHeader(_ key: String) -> some View {
         Text(WorkSections.name[key] ?? key)
             .font(.subheadline).bold().foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onDrop(of: [UTType.text], isTargeted: nil) { acceptDrop($0, key, moveToSection) }
             .plainRow(EdgeInsets(top: 16, leading: 16, bottom: 4, trailing: 16))
     }
 
     private func dropHint(_ key: String) -> some View {
-        Text("拖任务到这里").font(.caption).foregroundColor(Color(.tertiaryLabel))
+        Text("（空 · 长按别的任务可移过来）").font(.caption).foregroundColor(Color(.tertiaryLabel))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 10).padding(.horizontal, 14)
-            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.systemGray4), style: StrokeStyle(lineWidth: 1, dash: [4])))
-            .contentShape(Rectangle())
-            .onDrop(of: [UTType.text], isTargeted: nil) { acceptDrop($0, key, moveToSection) }
             .plainRow(EdgeInsets(top: 2, leading: 16, bottom: 6, trailing: 16))
     }
 
@@ -363,16 +331,20 @@ struct GoalsSheet: View {
     }
 }
 
-/// Makes a work row draggable and a drop target; no-op for rows without a section.
-private struct SectionDragDrop: ViewModifier {
-    let id: String
+/// Long-press menu to move a work task to another section. No-op for life rows.
+private struct SectionMenu: ViewModifier {
     let section: String?
-    let move: ([String], String) -> Void
+    let move: (String) -> Void
     func body(content: Content) -> some View {
         if let section {
-            content
-                .onDrag { NSItemProvider(object: id as NSString) }
-                .onDrop(of: [UTType.text], isTargeted: nil) { acceptDrop($0, section, move) }
+            content.contextMenu {
+                Text("移到分区")
+                ForEach(WorkSections.order.filter { $0 != section }, id: \.self) { key in
+                    Button { move(key) } label: {
+                        Label("移到 \(WorkSections.name[key] ?? key)", systemImage: "arrow.right.circle")
+                    }
+                }
+            }
         } else {
             content
         }
