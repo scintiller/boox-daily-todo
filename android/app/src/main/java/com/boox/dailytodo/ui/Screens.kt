@@ -137,7 +137,7 @@ fun WeatherDetail(days: List<DayWeather>) {
     Spacer(Modifier.height(8.dp))
 }
 
-private val SECTION_NAMES = listOf("focus" to "🎯 主线", "feature" to "🛠 随手做")
+private val SECTION_NAMES = listOf("focus" to "🧠 专注力", "feature" to "🛠 随手做")
 
 @Composable
 private fun CircleCheck(done: Boolean, color: Color, dim: Dp = 24.dp) {
@@ -191,6 +191,12 @@ private fun SubHeader(text: String) {
 }
 
 @Composable
+private fun PrioHeader(text: String) {
+    Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentIndigo,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 2.dp))
+}
+
+@Composable
 fun TodayScreen(vm: MainViewModel, pomo: PomodoroController) {
     val today = LocalDate.now()
     val todayStr = today.toString()
@@ -209,16 +215,19 @@ fun TodayScreen(vm: MainViewModel, pomo: PomodoroController) {
         if (vm.goals.isNotEmpty()) {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(GoalBg).padding(16.dp)) {
                 Column {
-                    Text("🎯 本周目标", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = InkSecondary)
+                    Text("🎯 目标", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = InkSecondary)
                     Spacer(Modifier.height(6.dp))
                     vm.goals.forEach { g ->
                         Row(
                             Modifier.fillMaxWidth().noRippleClickable { vm.toggleGoal(g) }.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Top
                         ) {
                             CircleCheck(false, AccentIndigo, 22.dp)
                             Spacer(Modifier.width(12.dp))
-                            Text(g.title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = InkPrimary)
+                            Column {
+                                Text(g.title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = InkPrimary)
+                                g.targetDate?.let { Text("🗓 预期 $it", fontSize = 12.sp, color = InkSecondary) }
+                            }
                         }
                     }
                 }
@@ -241,7 +250,17 @@ fun TodayScreen(vm: MainViewModel, pomo: PomodoroController) {
                 Text("工作", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
                 SECTION_NAMES.forEach { (key, name) ->
                     val items = work.filter { (it.workSection ?: "") == key }
-                    if (items.isNotEmpty()) { SubHeader(name); items.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) } }
+                    if (items.isNotEmpty()) {
+                        SubHeader(name)
+                        if (key == "feature") {
+                            val p1 = items.filter { it.title.contains("🌟") }
+                            val p2 = items.filter { !it.title.contains("🌟") }
+                            if (p1.isNotEmpty()) { PrioHeader("P1"); p1.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) } }
+                            if (p2.isNotEmpty()) { PrioHeader("P2"); p2.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) } }
+                        } else {
+                            items.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) }
+                        }
+                    }
                 }
                 val uncat = work.filter { (it.workSection ?: "") !in listOf("focus", "feature") }
                 if (uncat.isNotEmpty()) { SubHeader("· 未分类"); uncat.forEach { TaskRow(vm, it, todayStr, AccentIndigo) } }

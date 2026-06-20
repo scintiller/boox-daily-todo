@@ -21,8 +21,9 @@ data class Task(
 data class Goal(
     val id: String,
     val title: String,
-    val period: String = "week",    // week | month
+    val period: String = "week",
     val done: Boolean = false,
+    @SerialName("target_date") val targetDate: String? = null,  // 预期完成 YYYY-MM-DD
 )
 
 @Serializable
