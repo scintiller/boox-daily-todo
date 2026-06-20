@@ -8,6 +8,7 @@ struct TodayView: View {
     @State private var editing: TodoTask?
     @State private var showStats = false
     @State private var showGoals = false
+    @State private var showPomo = false
     @State private var dropTarget: String? = nil   // section currently hovered while dragging
 
     private var today: String { Cal.todayString }
@@ -19,11 +20,16 @@ struct TodayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PomodoroBar(pomo: pomo)
-            topButtons
-            // 工作/生活 toggle on the left
-            HStack { bucketToggle; Spacer() }
-                .padding(.horizontal).padding(.top, 12).padding(.bottom, 6)
+            // single header row: 工作/生活 toggle (left) + small buttons (right)
+            HStack(spacing: 8) {
+                bucketToggle
+                Spacer()
+                miniButton(systemImage: "timer", text: pomo.running ? pomo.label : nil,
+                           tint: pomo.running ? (pomo.phase == .work ? .indigo : .green) : nil) { showPomo = true }
+                miniButton(systemImage: "chart.bar.xaxis") { showStats = true }
+                miniButton(systemImage: "target", badge: store.goals.filter { !$0.done }.count) { showGoals = true }
+            }
+            .padding(.horizontal).padding(.top, 10).padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -36,36 +42,36 @@ struct TodayView: View {
         .sheet(item: $editing) { t in
             EditTaskView(task: t, onSave: { store.updateTask($0) }, onDelete: { store.deleteTask(t) })
         }
+        .sheet(isPresented: $showPomo) {
+            NavigationStack {
+                ScrollView { PomodoroBar(pomo: pomo, startExpanded: true).padding(.top, 8) }
+                    .navigationTitle("🍅 番茄钟").navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showPomo = false } } }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showStats) {
             NavigationStack { StatsView(store: store) }.presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showGoals) { GoalsSheet(store: store) }
     }
 
-    private var topButtons: some View {
-        HStack(spacing: 12) {
-            Button { showStats = true } label: {
-                Label("坚持度", systemImage: "chart.bar.xaxis")
-                    .font(.subheadline).fontWeight(.semibold).foregroundColor(.primary)
-                    .frame(maxWidth: .infinity).padding(.vertical, 13)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
-            }.buttonStyle(.plain)
-            Button { showGoals = true } label: {
-                HStack(spacing: 6) {
-                    Label("目标", systemImage: "target")
-                        .font(.subheadline).fontWeight(.semibold).foregroundColor(.primary)
-                    let n = store.goals.filter { !$0.done }.count
-                    if n > 0 {
-                        Text("\(n)").font(.caption2).bold().foregroundColor(.white)
-                            .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background(Capsule().fill(Color.indigo))
-                    }
+    private func miniButton(systemImage: String, text: String? = nil, badge: Int = 0,
+                            tint: Color? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage).font(.subheadline)
+                if let text { Text(text).font(.caption).monospacedDigit() }
+                if badge > 0 {
+                    Text("\(badge)").font(.caption2).bold().foregroundColor(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 1).background(Capsule().fill(Color.indigo))
                 }
-                .frame(maxWidth: .infinity).padding(.vertical, 13)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
-            }.buttonStyle(.plain)
-        }
-        .padding(.horizontal).padding(.top, 8)
+            }
+            .foregroundColor(tint ?? .primary)
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .background(Capsule().fill(Color(.secondarySystemBackground)))
+        }.buttonStyle(.plain)
     }
 
     private var bucketToggle: some View {

@@ -153,6 +153,7 @@ final class Pomodoro: ObservableObject {
 
 struct PomodoroBar: View {
     @ObservedObject var pomo: Pomodoro
+    var startExpanded: Bool = false
     @State private var expanded = ProcessInfo.processInfo.arguments.contains("-PomoOpen")
 
     private var color: Color { pomo.phase == .work ? .indigo : .green }
@@ -235,6 +236,7 @@ struct PomodoroBar: View {
         }
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
         .padding(.horizontal).padding(.top, 8)
+        .onAppear { if startExpanded { expanded = true } }
     }
 
     private var header: some View {
