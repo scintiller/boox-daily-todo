@@ -101,8 +101,8 @@ struct TodayView: View {
             } else if key == "feature" {
                 let p1 = items.filter { $0.title.contains("🌟") }
                 let p2 = items.filter { !$0.title.contains("🌟") }
-                if !p1.isEmpty { prioHeader("P1"); ForEach(p1) { t in baseCell(t, section: key) } }
-                if !p2.isEmpty { prioHeader("P2"); ForEach(p2) { t in baseCell(t, section: key) } }
+                if !p1.isEmpty { prioHeader("P1", .orange); ForEach(p1) { t in baseCell(t, section: key, accent: .orange) } }
+                if !p2.isEmpty { prioHeader("P2", .teal); ForEach(p2) { t in baseCell(t, section: key, accent: .teal) } }
             } else {
                 ForEach(items) { t in baseCell(t, section: key) }
             }
@@ -153,8 +153,8 @@ struct TodayView: View {
     }
 
     // MARK: cells
-    @ViewBuilder private func baseCell(_ t: TodoTask, section: String? = nil) -> some View {
-        rowContent(t, accent: sectionAccent(t.category == "工作" ? t.workSection : "life"))
+    @ViewBuilder private func baseCell(_ t: TodoTask, section: String? = nil, accent: Color? = nil) -> some View {
+        rowContent(t, accent: accent ?? sectionAccent(t.category == "工作" ? t.workSection : "life"))
             .contentShape(Rectangle())
             .onTapGesture { editing = t }
             .contextMenu { rowMenu(t, section) }
@@ -257,8 +257,8 @@ struct TodayView: View {
             .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
     }
 
-    private func prioHeader(_ s: String) -> some View {
-        Text(s).font(.caption).bold().foregroundColor(.indigo)
+    private func prioHeader(_ s: String, _ color: Color) -> some View {
+        Text(s).font(.caption).bold().foregroundColor(color)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 28).padding(.trailing, 16).padding(.top, 8).padding(.bottom, 2)
     }

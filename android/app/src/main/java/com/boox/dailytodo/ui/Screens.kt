@@ -191,10 +191,13 @@ private fun SubHeader(text: String) {
 }
 
 @Composable
-private fun PrioHeader(text: String) {
-    Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentIndigo,
+private fun PrioHeader(text: String, color: Color) {
+    Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = color,
         modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 2.dp))
 }
+
+private val P1Color = Color(0xFFFF9500)   // 橙 · 优先
+private val P2Color = Color(0xFF30B0C7)   // 青 · 次要
 
 @Composable
 fun TodayScreen(vm: MainViewModel, pomo: PomodoroController) {
@@ -255,8 +258,8 @@ fun TodayScreen(vm: MainViewModel, pomo: PomodoroController) {
                         if (key == "feature") {
                             val p1 = items.filter { it.title.contains("🌟") }
                             val p2 = items.filter { !it.title.contains("🌟") }
-                            if (p1.isNotEmpty()) { PrioHeader("P1"); p1.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) } }
-                            if (p2.isNotEmpty()) { PrioHeader("P2"); p2.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) } }
+                            if (p1.isNotEmpty()) { PrioHeader("P1", P1Color); p1.forEach { TaskRow(vm, it, todayStr, P1Color) } }
+                            if (p2.isNotEmpty()) { PrioHeader("P2", P2Color); p2.forEach { TaskRow(vm, it, todayStr, P2Color) } }
                         } else {
                             items.forEach { TaskRow(vm, it, todayStr, sectionAccent(key)) }
                         }
