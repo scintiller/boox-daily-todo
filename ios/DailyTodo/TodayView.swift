@@ -238,7 +238,8 @@ struct TodayView: View {
             .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
             .opacity(0.96)
             .allowsHitTesting(false)
-            .position(x: fingerLocation.x, y: fingerLocation.y)
+            // horizontally fixed (like a normal row), only follows the finger vertically
+            .position(x: dragCardWidth / 2 + 16, y: fingerLocation.y)
             .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.85), value: fingerLocation)
     }
 
