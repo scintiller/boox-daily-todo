@@ -28,10 +28,10 @@ struct TodayView: View {
             HStack(spacing: 8) {
                 bucketToggle
                 Spacer()
+                miniButton(systemImage: "target") { showGoals = true }
                 miniButton(systemImage: "timer", text: pomo.running ? pomo.label : nil,
                            tint: pomo.running ? (pomo.phase == .work ? .indigo : .green) : nil) { showPomo = true }
                 miniButton(systemImage: "chart.bar.xaxis") { showStats = true }
-                miniButton(systemImage: "target") { showGoals = true }
             }
             .padding(.horizontal).padding(.top, 10).padding(.bottom, 8)
 

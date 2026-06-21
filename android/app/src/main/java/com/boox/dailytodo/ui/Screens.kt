@@ -137,7 +137,7 @@ fun WeatherDetail(days: List<DayWeather>) {
     Spacer(Modifier.height(8.dp))
 }
 
-private val SECTION_NAMES = listOf("focus" to "🔥 专注力", "feature" to "🛠 随手做")
+private val SECTION_NAMES = listOf("focus" to "🔥 专注", "feature" to "🛠 随手做")
 
 @Composable
 private fun CircleCheck(done: Boolean, color: Color, dim: Dp = 24.dp) {
