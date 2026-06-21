@@ -66,7 +66,7 @@ enum Cal {
 
 enum WorkSections {
     static let order = ["focus", "feature"]
-    static let name = ["focus": "🧠 专注力", "feature": "🛠 随手做"]
+    static let name = ["focus": "🔥 专注力", "feature": "🛠 随手做"]
     static func display(_ key: String?) -> String { name[key ?? ""] ?? "· 未分类" }
 }
 
