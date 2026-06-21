@@ -9,7 +9,6 @@ struct TodayView: View {
     @State private var showStats = false
     @State private var showGoals = false
     @State private var showPomo = false
-    @State private var dropTarget: String? = nil   // section currently hovered while dragging
 
     private var today: String { Cal.todayString }
     private var yesterday: String { Cal.string(Cal.add(days: -1, to: Date())) }
@@ -27,7 +26,7 @@ struct TodayView: View {
                 miniButton(systemImage: "timer", text: pomo.running ? pomo.label : nil,
                            tint: pomo.running ? (pomo.phase == .work ? .indigo : .green) : nil) { showPomo = true }
                 miniButton(systemImage: "chart.bar.xaxis") { showStats = true }
-                miniButton(systemImage: "target", badge: store.goals.filter { !$0.done }.count) { showGoals = true }
+                miniButton(systemImage: "target") { showGoals = true }
             }
             .padding(.horizontal).padding(.top, 10).padding(.bottom, 8)
 
@@ -157,8 +156,7 @@ struct TodayView: View {
         rowContent(t, accent: accent ?? sectionAccent(t.category == "工作" ? t.workSection : "life"))
             .contentShape(Rectangle())
             .onTapGesture { editing = t }
-            .contextMenu { rowMenu(t, section) }
-            .modifier(WorkDragDrop(id: t.id, section: section, move: moveDropped))
+            .contextMenu { rowMenu(t, section) }   // long-press → move / 备忘 / 删除
             .padding(.horizontal, 16).padding(.vertical, 5)
     }
 
@@ -175,35 +173,17 @@ struct TodayView: View {
         Button(role: .destructive) { store.deleteTask(t) } label: { Label("删除", systemImage: "trash") }
     }
 
-    private func moveDropped(_ ids: [String], _ key: String) {
-        for id in ids {
-            if let t = store.tasks.first(where: { $0.id == id }), (t.workSection ?? "") != key {
-                store.setTaskSection(t, key)
-            }
-        }
-    }
-
     private func sectionHeader(_ key: String) -> some View {
         Text(WorkSections.name[key] ?? key)
-            .font(.subheadline).bold()
-            .foregroundColor(dropTarget == key ? .indigo : .secondary)
+            .font(.subheadline).bold().foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
             .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
-            .dropDestination(for: String.self, action: { ids, _ in moveDropped(ids, key); return true },
-                             isTargeted: { hovering in dropTarget = hovering ? key : (dropTarget == key ? nil : dropTarget) })
     }
 
     private func dropHint(_ key: String) -> some View {
-        Text("拖任务到这里").font(.caption).foregroundColor(dropTarget == key ? .indigo : Color(.tertiaryLabel))
+        Text("（空 · 长按别的任务可移过来）").font(.caption).foregroundColor(Color(.tertiaryLabel))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12).padding(.horizontal, 14)
-            .background(RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(dropTarget == key ? Color.indigo : Color(.systemGray4),
-                              style: StrokeStyle(lineWidth: 1.5, dash: [4])))
-            .padding(.horizontal, 16).padding(.bottom, 6)
-            .dropDestination(for: String.self, action: { ids, _ in moveDropped(ids, key); return true },
-                             isTargeted: { hovering in dropTarget = hovering ? key : (dropTarget == key ? nil : dropTarget) })
+            .padding(.horizontal, 16).padding(.vertical, 4)
     }
 
     @ViewBuilder private func routineCell(_ r: Routine) -> some View {
@@ -274,21 +254,6 @@ struct TodayView: View {
     }
 }
 
-/// Adds finger-drag (draggable) + drop target to a work row. No-op for life rows.
-private struct WorkDragDrop: ViewModifier {
-    let id: String
-    let section: String?
-    let move: ([String], String) -> Void
-    func body(content: Content) -> some View {
-        if let section {
-            content
-                .draggable(id)
-                .dropDestination(for: String.self) { ids, _ in move(ids, section); return true }
-        } else {
-            content
-        }
-    }
-}
 
 private func goalCountdown(_ ymd: String) -> String {
     guard let d = Cal.date(ymd) else { return "" }
@@ -331,7 +296,7 @@ struct GoalsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 }
