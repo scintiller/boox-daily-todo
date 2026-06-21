@@ -10,11 +10,8 @@ struct TodayView: View {
     @State private var showGoals = false
     @State private var showPomo = false
     // ---- finger-drag to move a task between work sections ----
-    @State private var draggingId: String? = nil
-    @State private var dragTask: TodoTask? = nil
-    @State private var dragFromSection: String? = nil
-    @State private var hoveredSection: String? = nil
-    @State private var fingerLocation: CGPoint = .zero
+    // @GestureState auto-resets on gesture end OR cancel → the floating card can never get stuck.
+    @GestureState private var drag: DragInfo? = nil
     @State private var sectionFrames: [String: CGRect] = [:]
     @State private var dragCardWidth: CGFloat = 320
 
@@ -53,7 +50,11 @@ struct TodayView: View {
             }
             .coordinateSpace(name: "today")
             .onPreferenceChange(SectionFrameKey.self) { sectionFrames = $0 }
-            .overlay { if let dt = dragTask { floatingCard(dt) } }
+            .overlay {
+                if let dg = drag, let t = store.tasks.first(where: { $0.id == dg.id }) {
+                    floatingCard(t, y: dg.location.y)
+                }
+            }
         }
         .onAppear { style = TaskStyle.fromArgs() }
         .sheet(item: $editing) { t in
@@ -131,7 +132,7 @@ struct TodayView: View {
                 Color.clear.preference(key: SectionFrameKey.self, value: [key: g.frame(in: .named("today"))])
             })
             .background(RoundedRectangle(cornerRadius: 16).fill(
-                Color.accentColor.opacity((draggingId != nil && hoveredSection == key && key != dragFromSection) ? 0.10 : 0)))
+                Color.accentColor.opacity(isDropTarget(key) ? 0.10 : 0)))
         }
         let uncat = pending.filter { !WorkSections.order.contains($0.workSection ?? "") }
         if !uncat.isEmpty {
@@ -183,64 +184,52 @@ struct TodayView: View {
         let isWork = t.category == "工作"
         let resolved = section ?? (isWork ? (t.workSection ?? "feature") : "life")
         rowContent(t, accent: accent ?? sectionAccent(isWork ? t.workSection : "life"))
-            .opacity(draggingId == t.id ? 0 : 1)   // original stays in tree, just invisible while its copy floats
+            .opacity(drag?.id == t.id ? 0 : 1)   // original stays in tree, just invisible while its copy floats
             .contentShape(Rectangle())
-            .applyIf(isWork) { $0.gesture(dragOrTap(t, section: resolved)) }   // press-hold → drag, quick tap → edit
+            .applyIf(isWork) {
+                $0.onTapGesture { editing = t }                 // quick tap → edit
+                  .gesture(dragGesture(t, section: resolved))   // press-hold → drag
+            }
             .applyIf(!isWork) { $0.onTapGesture { editing = t }.contextMenu { rowMenu(t, nil) } }
             .padding(.horizontal, 16).padding(.vertical, 5)
     }
 
-    // press-and-hold (0.22s) arms a finger-drag; a quick tap opens edit; a flick scrolls.
-    private func dragOrTap(_ t: TodoTask, section: String) -> some Gesture {
+    /// Whether `key` is the section the finger is currently hovering a valid drop over.
+    private func isDropTarget(_ key: String) -> Bool {
+        guard let dg = drag else { return false }
+        let hov = sectionFrames.first { $0.value.contains(dg.location) }?.key
+        return hov == key && key != dg.from
+    }
+
+    // press-and-hold (0.22s) arms the drag; @GestureState `drag` auto-resets on end OR cancel (no stuck).
+    private func dragGesture(_ t: TodoTask, section: String) -> some Gesture {
         let press = LongPressGesture(minimumDuration: 0.22, maximumDistance: 10)
-        let drag = DragGesture(minimumDistance: 0, coordinateSpace: .named("today"))
-        return press.sequenced(before: drag)
-            .onChanged { value in
-                switch value {
-                case .first(true):
-                    if draggingId == nil {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        draggingId = t.id; dragTask = t; dragFromSection = section
-                    }
-                case .second(true, let d?):
-                    fingerLocation = d.location
-                    hoveredSection = sectionFrames.first { $0.value.contains(d.location) }?.key
-                default: break
+        let move = DragGesture(minimumDistance: 0, coordinateSpace: .named("today"))
+        return press.sequenced(before: move)
+            .updating($drag) { value, state, _ in
+                if case .second(true, let d?) = value {
+                    state = DragInfo(id: t.id, from: section, location: d.location)
                 }
             }
             .onEnded { value in
-                if draggingId == t.id {
-                    // a real drag was armed → resolve drop (or snap back). Never opens edit.
-                    if case .second(true, let d?) = value {
-                        let target = sectionFrames.first { $0.value.contains(d.location) }?.key
-                        if let target, target != section, WorkSections.order.contains(target),
-                           let live = store.tasks.first(where: { $0.id == t.id }) {
-                            store.setTaskSection(live, target)   // ONLY a known, different section
-                        }
-                    }
-                    resetDrag()
-                } else {
-                    editing = t   // press never matured → quick tap → edit
+                guard case .second(true, let d?) = value else { return }   // not a real drag (quick tap handled separately)
+                let target = sectionFrames.first { $0.value.contains(d.location) }?.key
+                if let target, target != section, WorkSections.order.contains(target),
+                   let live = store.tasks.first(where: { $0.id == t.id }) {
+                    store.setTaskSection(live, target)   // ONLY a known, different section → can never lose a task
                 }
             }
     }
 
-    private func resetDrag() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-            draggingId = nil; dragTask = nil; dragFromSection = nil; hoveredSection = nil; fingerLocation = .zero
-        }
-    }
-
-    @ViewBuilder private func floatingCard(_ t: TodoTask) -> some View {
+    @ViewBuilder private func floatingCard(_ t: TodoTask, y: CGFloat) -> some View {
         rowContent(t, accent: sectionAccent(t.category == "工作" ? t.workSection : "life"))
             .frame(width: dragCardWidth)
             .scaleEffect(1.04)
             .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
             .opacity(0.96)
             .allowsHitTesting(false)
-            // horizontally fixed (like a normal row), only follows the finger vertically
-            .position(x: dragCardWidth / 2 + 16, y: fingerLocation.y)
-            .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.85), value: fingerLocation)
+            .position(x: dragCardWidth / 2 + 16, y: y)   // horizontally fixed like a row; follows finger vertically
+            .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.85), value: y)
     }
 
     @ViewBuilder private func rowMenu(_ t: TodoTask, _ section: String?) -> some View {
@@ -349,6 +338,12 @@ private func goalCountdown(_ ymd: String) -> String {
 }
 
 /// 目标 sheet — opened from the 目标 button.
+struct DragInfo: Equatable {
+    let id: String
+    let from: String
+    let location: CGPoint
+}
+
 private struct SectionFrameKey: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
