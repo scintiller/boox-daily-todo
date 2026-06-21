@@ -118,6 +118,55 @@ final class Store: ObservableObject {
         }
     }
 
+    func addGoal(title: String, targetDate: String?) {
+        Task {
+            do { try await repo.addGoal(title: title, targetDate: targetDate); await load() }
+            catch { errorText = error.localizedDescription }
+        }
+    }
+
+    func updateGoal(_ g: Goal, title: String, targetDate: String?) {
+        if let i = goals.firstIndex(where: { $0.id == g.id }) {
+            goals[i].title = title; goals[i].targetDate = targetDate
+        }
+        Task {
+            do { try await repo.updateGoal(id: g.id, title: title, targetDate: targetDate); await load() }
+            catch { errorText = error.localizedDescription; await load() }
+        }
+    }
+
+    func deleteGoal(_ g: Goal) {
+        withAnimation { goals.removeAll { $0.id == g.id } }
+        Task {
+            do { try await repo.deleteGoal(id: g.id); await load() }
+            catch { errorText = error.localizedDescription; await load() }
+        }
+    }
+
+    /// Drag into P1/P2: set work_section=feature and add/remove the 🌟 priority marker in the title.
+    func setFeaturePriority(_ t: TodoTask, p1: Bool) {
+        var title = t.title
+        let hasStar = title.contains("🌟")
+        if p1 && !hasStar {
+            title = "🌟 " + title
+        } else if !p1 && hasStar {
+            title = title.replacingOccurrences(of: "🌟", with: "").trimmingCharacters(in: .whitespaces)
+        }
+        if let i = tasks.firstIndex(where: { $0.id == t.id }) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+                tasks[i].workSection = "feature"; tasks[i].title = title
+            }
+        }
+        let newTitle = title
+        Task {
+            do {
+                try await repo.setTaskTitleSection(id: t.id, title: newTitle, section: "feature")
+                showToast(p1 ? "已设为 P1 🌟" : "已设为 P2")
+                await load()
+            } catch { errorText = error.localizedDescription; await load() }
+        }
+    }
+
     func logFocus(phase: String, minutes: Int) {
         Task {
             do { try await repo.logFocusSession(phase: phase, minutes: minutes); await load() }

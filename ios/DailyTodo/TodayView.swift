@@ -108,33 +108,34 @@ struct TodayView: View {
         .background(Capsule().fill(Color(.systemGray5)))
     }
 
+    // drop zones (also drag-source keys): focus, feature P1 (starred), feature P2
+    private let dropZones = ["focus", "feature:p1", "feature:p2"]
+
     // MARK: content
     @ViewBuilder private var workContent: some View {
         let pending = store.tasks.filter { $0.category == "工作" && isPending($0) }
-        ForEach(WorkSections.order, id: \.self) { key in
-            let items = pending.filter { ($0.workSection ?? "") == key }
-            VStack(alignment: .leading, spacing: 0) {
-                sectionHeader(key)
-                if items.isEmpty {
-                    dropHint(key)
-                } else if key == "feature" {
-                    let p1 = items.filter { $0.title.contains("🌟") }
-                    let p2 = items.filter { !$0.title.contains("🌟") }
-                    if !p1.isEmpty { prioHeader("P1", .orange); ForEach(p1) { t in baseCell(t, section: key, accent: .orange) } }
-                    if !p2.isEmpty { prioHeader("P2", .teal); ForEach(p2) { t in baseCell(t, section: key, accent: .teal) } }
-                } else {
-                    ForEach(items) { t in baseCell(t, section: key) }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .background(GeometryReader { g in
-                Color.clear.preference(key: SectionFrameKey.self, value: [key: g.frame(in: .named("today"))])
-            })
-            .background(RoundedRectangle(cornerRadius: 16).fill(
-                Color.accentColor.opacity(isDropTarget(key) ? 0.10 : 0)))
+        let focusItems = pending.filter { ($0.workSection ?? "") == "focus" }
+        let feat = pending.filter { ($0.workSection ?? "") == "feature" }
+        let p1 = feat.filter { $0.title.contains("🌟") }
+        let p2 = feat.filter { !$0.title.contains("🌟") }
+
+        zone("focus") {
+            sectionHeader("focus")
+            if focusItems.isEmpty { dropHint("focus") }
+            else { ForEach(focusItems) { t in baseCell(t, section: "focus") } }
         }
-        let uncat = pending.filter { !WorkSections.order.contains($0.workSection ?? "") }
+        sectionHeader("feature")
+        zone("feature:p1") {
+            prioHeader("P1", .orange)
+            if p1.isEmpty { dropHint("feature:p1") }
+            else { ForEach(p1) { t in baseCell(t, section: "feature:p1", accent: .orange) } }
+        }
+        zone("feature:p2") {
+            prioHeader("P2", .teal)
+            if p2.isEmpty { dropHint("feature:p2") }
+            else { ForEach(p2) { t in baseCell(t, section: "feature:p2", accent: .teal) } }
+        }
+        let uncat = pending.filter { !["focus", "feature"].contains($0.workSection ?? "") }
         if !uncat.isEmpty {
             subHeader("· 未分类")
             ForEach(uncat) { t in baseCell(t) }
@@ -194,11 +195,32 @@ struct TodayView: View {
             .padding(.horizontal, 16).padding(.vertical, 5)
     }
 
-    /// Whether `key` is the section the finger is currently hovering a valid drop over.
+    /// Whether `key` is the zone the finger is currently hovering a valid drop over.
     private func isDropTarget(_ key: String) -> Bool {
         guard let dg = drag else { return false }
         let hov = sectionFrames.first { $0.value.contains(dg.location) }?.key
         return hov == key && key != dg.from
+    }
+
+    /// A measured, highlightable drop zone (its frame goes into sectionFrames under `key`).
+    @ViewBuilder private func zone<Content: View>(_ key: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) { content() }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(GeometryReader { g in
+                Color.clear.preference(key: SectionFrameKey.self, value: [key: g.frame(in: .named("today"))])
+            })
+            .background(RoundedRectangle(cornerRadius: 16).fill(Color.accentColor.opacity(isDropTarget(key) ? 0.10 : 0)))
+    }
+
+    /// Apply a drop onto a zone: focus = section only; feature P1/P2 = section feature + 🌟 add/remove.
+    private func applyDrop(_ t: TodoTask, to zone: String) {
+        switch zone {
+        case "focus": store.setTaskSection(t, "focus")
+        case "feature:p1": store.setFeaturePriority(t, p1: true)
+        case "feature:p2": store.setFeaturePriority(t, p1: false)
+        default: break
+        }
     }
 
     // press-and-hold (0.22s) arms the drag; @GestureState `drag` auto-resets on end OR cancel (no stuck).
@@ -214,9 +236,9 @@ struct TodayView: View {
             .onEnded { value in
                 guard case .second(true, let d?) = value else { return }   // not a real drag (quick tap handled separately)
                 let target = sectionFrames.first { $0.value.contains(d.location) }?.key
-                if let target, target != section, WorkSections.order.contains(target),
+                if let target, target != section, dropZones.contains(target),
                    let live = store.tasks.first(where: { $0.id == t.id }) {
-                    store.setTaskSection(live, target)   // ONLY a known, different section → can never lose a task
+                    applyDrop(live, to: target)   // ONLY a known, different zone → can never lose a task
                 }
             }
     }
@@ -360,36 +382,99 @@ extension View {
 struct GoalsSheet: View {
     @ObservedObject var store: Store
     @Environment(\.dismiss) private var dismiss
+    @State private var editingGoal: Goal? = nil
+    @State private var adding = false
     var body: some View {
         NavigationStack {
             List {
                 let active = store.goals.filter { !$0.done }
                 if active.isEmpty {
-                    Text("还没有目标 🎯").foregroundColor(.secondary)
-                } else {
-                    ForEach(active) { g in
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "circle").font(.title2).foregroundStyle(.indigo)
-                                .frame(width: 36, height: 36).contentShape(Rectangle())
-                                .onTapGesture { store.toggleGoal(g) }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(g.title).font(.body).fontWeight(.medium)
-                                if let d = g.targetDate {
-                                    Text("🗓 预期 \(d)" + goalCountdown(d))
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
+                    Text("还没有目标 · 点右上角 ＋ 添加").foregroundColor(.secondary)
+                }
+                ForEach(active) { g in
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "circle").font(.title2).foregroundStyle(.indigo)
+                            .frame(width: 36, height: 36).contentShape(Rectangle())
+                            .onTapGesture { store.toggleGoal(g) }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(g.title).font(.body).fontWeight(.medium)
+                            if let d = g.targetDate {
+                                Text("🗓 预期 \(d)" + goalCountdown(d)).font(.caption).foregroundColor(.secondary)
+                            } else {
+                                Text("未设预期时间").font(.caption).foregroundColor(.secondary)
                             }
-                            Spacer()
                         }
-                        .padding(.vertical, 4)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundColor(Color(.tertiaryLabel))
                     }
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture { editingGoal = g }   // tap a goal → edit
                 }
             }
             .navigationTitle("🎯 目标")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { adding = true } label: { Image(systemName: "plus.circle.fill") }
+                }
+                ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
+            }
+            .sheet(item: $editingGoal) { g in GoalEditView(store: store, goal: g) }
+            .sheet(isPresented: $adding) { GoalEditView(store: store, goal: nil) }
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+/// Add or edit a goal (title + optional target date).
+struct GoalEditView: View {
+    @ObservedObject var store: Store
+    let goal: Goal?   // nil = add new
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+    @State private var hasDate: Bool
+    @State private var date: Date
+
+    init(store: Store, goal: Goal?) {
+        self.store = store; self.goal = goal
+        _title = State(initialValue: goal?.title ?? "")
+        _hasDate = State(initialValue: goal?.targetDate != nil)
+        _date = State(initialValue: goal?.targetDate.flatMap { Cal.date($0) } ?? Date())
+    }
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section { TextField("目标", text: $title, axis: .vertical) }
+                Section {
+                    Toggle("有预期时间", isOn: $hasDate.animation())
+                    if hasDate { DatePicker("预期完成", selection: $date, displayedComponents: .date) }
+                }
+                if let g = goal {
+                    Section {
+                        Button(role: .destructive) { store.deleteGoal(g); dismiss() } label: {
+                            HStack { Spacer(); Label("删除目标", systemImage: "trash"); Spacer() }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(goal == nil ? "新目标" : "编辑目标")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") { save() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+    private func save() {
+        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let td = hasDate ? Cal.string(date) : nil
+        if let g = goal { store.updateGoal(g, title: t, targetDate: td) }
+        else { store.addGoal(title: t, targetDate: td) }
+        dismiss()
     }
 }

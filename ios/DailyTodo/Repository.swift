@@ -58,6 +58,11 @@ struct Repository {
         try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
     }
 
+    func setTaskTitleSection(id: String, title: String, section: String) async throws {
+        let data = try JSONSerialization.data(withJSONObject: ["title": title, "work_section": section])
+        try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
     func updateTask(id: String, title: String, category: String?, workSection: String?,
                     dueDate: String?, memo: Bool) async throws {
         var body: [String: Any] = ["title": title, "memo": memo]
@@ -108,6 +113,24 @@ struct Repository {
         body["completed_at"] = done ? ISO8601DateFormatter().string(from: Date()) : NSNull()
         let data = try JSONSerialization.data(withJSONObject: body)
         try await send(request("goals?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
+    func addGoal(title: String, targetDate: String?) async throws {
+        var body: [String: Any] = ["title": title]
+        body["target_date"] = (targetDate?.isEmpty == false) ? targetDate! : NSNull()
+        let data = try JSONSerialization.data(withJSONObject: body)
+        try await send(request("goals", method: "POST", body: data, prefer: "return=minimal"))
+    }
+
+    func updateGoal(id: String, title: String, targetDate: String?) async throws {
+        var body: [String: Any] = ["title": title]
+        body["target_date"] = (targetDate?.isEmpty == false) ? targetDate! : NSNull()
+        let data = try JSONSerialization.data(withJSONObject: body)
+        try await send(request("goals?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
+    }
+
+    func deleteGoal(id: String) async throws {
+        try await send(request("goals?id=eq.\(id)", method: "DELETE", prefer: "return=minimal"))
     }
 
     // MARK: Focus sessions (pomodoro)
