@@ -172,6 +172,10 @@ final class Store: ObservableObject {
                 try await repo.setTaskSection(id: t.id, section: section)
                 showToast("已移到 \(WorkSections.display(section))")
                 await load()
+                // re-assert the optimistic value in case a stale concurrent reload clobbered it
+                if let i = tasks.firstIndex(where: { $0.id == t.id }), tasks[i].workSection != section {
+                    tasks[i].workSection = section
+                }
             } catch { errorText = error.localizedDescription; await load() }
         }
     }

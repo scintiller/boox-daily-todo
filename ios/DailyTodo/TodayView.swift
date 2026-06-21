@@ -9,6 +9,14 @@ struct TodayView: View {
     @State private var showStats = false
     @State private var showGoals = false
     @State private var showPomo = false
+    // ---- finger-drag to move a task between work sections ----
+    @State private var draggingId: String? = nil
+    @State private var dragTask: TodoTask? = nil
+    @State private var dragFromSection: String? = nil
+    @State private var hoveredSection: String? = nil
+    @State private var fingerLocation: CGPoint = .zero
+    @State private var sectionFrames: [String: CGRect] = [:]
+    @State private var dragCardWidth: CGFloat = 320
 
     private var today: String { Cal.todayString }
     private var yesterday: String { Cal.string(Cal.add(days: -1, to: Date())) }
@@ -35,7 +43,17 @@ struct TodayView: View {
                     if bucket == 0 { workContent } else { lifeContent }
                 }
                 .padding(.bottom, 28)
+                .background(
+                    GeometryReader { g in
+                        Color.clear
+                            .onAppear { dragCardWidth = g.size.width - 32 }
+                            .onChange(of: g.size.width) { dragCardWidth = $0 - 32 }
+                    }
+                )
             }
+            .coordinateSpace(name: "today")
+            .onPreferenceChange(SectionFrameKey.self) { sectionFrames = $0 }
+            .overlay { if let dt = dragTask { floatingCard(dt) } }
         }
         .onAppear { style = TaskStyle.fromArgs() }
         .sheet(item: $editing) { t in
@@ -94,22 +112,31 @@ struct TodayView: View {
         let pending = store.tasks.filter { $0.category == "工作" && isPending($0) }
         ForEach(WorkSections.order, id: \.self) { key in
             let items = pending.filter { ($0.workSection ?? "") == key }
-            sectionHeader(key)
-            if items.isEmpty {
-                dropHint(key)
-            } else if key == "feature" {
-                let p1 = items.filter { $0.title.contains("🌟") }
-                let p2 = items.filter { !$0.title.contains("🌟") }
-                if !p1.isEmpty { prioHeader("P1", .orange); ForEach(p1) { t in baseCell(t, section: key, accent: .orange) } }
-                if !p2.isEmpty { prioHeader("P2", .teal); ForEach(p2) { t in baseCell(t, section: key, accent: .teal) } }
-            } else {
-                ForEach(items) { t in baseCell(t, section: key) }
+            VStack(alignment: .leading, spacing: 0) {
+                sectionHeader(key)
+                if items.isEmpty {
+                    dropHint(key)
+                } else if key == "feature" {
+                    let p1 = items.filter { $0.title.contains("🌟") }
+                    let p2 = items.filter { !$0.title.contains("🌟") }
+                    if !p1.isEmpty { prioHeader("P1", .orange); ForEach(p1) { t in baseCell(t, section: key, accent: .orange) } }
+                    if !p2.isEmpty { prioHeader("P2", .teal); ForEach(p2) { t in baseCell(t, section: key, accent: .teal) } }
+                } else {
+                    ForEach(items) { t in baseCell(t, section: key) }
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(GeometryReader { g in
+                Color.clear.preference(key: SectionFrameKey.self, value: [key: g.frame(in: .named("today"))])
+            })
+            .background(RoundedRectangle(cornerRadius: 16).fill(
+                Color.accentColor.opacity((draggingId != nil && hoveredSection == key && key != dragFromSection) ? 0.10 : 0)))
         }
         let uncat = pending.filter { !WorkSections.order.contains($0.workSection ?? "") }
         if !uncat.isEmpty {
             subHeader("· 未分类")
-            ForEach(uncat) { t in baseCell(t, section: "feature") }
+            ForEach(uncat) { t in baseCell(t) }
         }
         completedRows(work: true)
     }
@@ -153,11 +180,66 @@ struct TodayView: View {
 
     // MARK: cells
     @ViewBuilder private func baseCell(_ t: TodoTask, section: String? = nil, accent: Color? = nil) -> some View {
-        rowContent(t, accent: accent ?? sectionAccent(t.category == "工作" ? t.workSection : "life"))
+        let isWork = t.category == "工作"
+        let resolved = section ?? (isWork ? (t.workSection ?? "feature") : "life")
+        rowContent(t, accent: accent ?? sectionAccent(isWork ? t.workSection : "life"))
+            .opacity(draggingId == t.id ? 0 : 1)   // original stays in tree, just invisible while its copy floats
             .contentShape(Rectangle())
-            .onTapGesture { editing = t }
-            .contextMenu { rowMenu(t, section) }   // long-press → move / 备忘 / 删除
+            .applyIf(isWork) { $0.gesture(dragOrTap(t, section: resolved)) }   // press-hold → drag, quick tap → edit
+            .applyIf(!isWork) { $0.onTapGesture { editing = t }.contextMenu { rowMenu(t, nil) } }
             .padding(.horizontal, 16).padding(.vertical, 5)
+    }
+
+    // press-and-hold (0.22s) arms a finger-drag; a quick tap opens edit; a flick scrolls.
+    private func dragOrTap(_ t: TodoTask, section: String) -> some Gesture {
+        let press = LongPressGesture(minimumDuration: 0.22, maximumDistance: 10)
+        let drag = DragGesture(minimumDistance: 0, coordinateSpace: .named("today"))
+        return press.sequenced(before: drag)
+            .onChanged { value in
+                switch value {
+                case .first(true):
+                    if draggingId == nil {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        draggingId = t.id; dragTask = t; dragFromSection = section
+                    }
+                case .second(true, let d?):
+                    fingerLocation = d.location
+                    hoveredSection = sectionFrames.first { $0.value.contains(d.location) }?.key
+                default: break
+                }
+            }
+            .onEnded { value in
+                if draggingId == t.id {
+                    // a real drag was armed → resolve drop (or snap back). Never opens edit.
+                    if case .second(true, let d?) = value {
+                        let target = sectionFrames.first { $0.value.contains(d.location) }?.key
+                        if let target, target != section, WorkSections.order.contains(target),
+                           let live = store.tasks.first(where: { $0.id == t.id }) {
+                            store.setTaskSection(live, target)   // ONLY a known, different section
+                        }
+                    }
+                    resetDrag()
+                } else {
+                    editing = t   // press never matured → quick tap → edit
+                }
+            }
+    }
+
+    private func resetDrag() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            draggingId = nil; dragTask = nil; dragFromSection = nil; hoveredSection = nil; fingerLocation = .zero
+        }
+    }
+
+    @ViewBuilder private func floatingCard(_ t: TodoTask) -> some View {
+        rowContent(t, accent: sectionAccent(t.category == "工作" ? t.workSection : "life"))
+            .frame(width: dragCardWidth)
+            .scaleEffect(1.04)
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+            .opacity(0.96)
+            .allowsHitTesting(false)
+            .position(x: fingerLocation.x, y: fingerLocation.y)
+            .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.85), value: fingerLocation)
     }
 
     @ViewBuilder private func rowMenu(_ t: TodoTask, _ section: String?) -> some View {
@@ -212,12 +294,14 @@ struct TodayView: View {
 
     private func checkbox(_ t: TodoTask, color: Color, big: Bool) -> some View {
         let on = t.done || store.completingIds.contains(t.id)
-        return Image(systemName: on ? "checkmark.circle.fill" : "circle")
-            .font(.title2)
-            .foregroundStyle(color)
-            .frame(width: 36, height: 36)
-            .contentShape(Rectangle())
-            .onTapGesture { if !on { store.toggleTask(t) } }
+        return Button {
+            if !on { store.toggleTask(t) }
+        } label: {
+            Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                .font(.title2).foregroundStyle(color)
+                .frame(width: 36, height: 36).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func titleText(_ t: TodoTask, weight: Font.Weight = .regular) -> some View {
@@ -264,6 +348,19 @@ private func goalCountdown(_ ymd: String) -> String {
 }
 
 /// 目标 sheet — opened from the 目标 button.
+private struct SectionFrameKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+extension View {
+    @ViewBuilder func applyIf<T: View>(_ cond: Bool, _ transform: (Self) -> T) -> some View {
+        if cond { transform(self) } else { self }
+    }
+}
+
 struct GoalsSheet: View {
     @ObservedObject var store: Store
     @Environment(\.dismiss) private var dismiss
