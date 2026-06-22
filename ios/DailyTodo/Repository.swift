@@ -49,6 +49,15 @@ struct Repository {
         try await send(request("tasks?id=eq.\(id)", method: "PATCH", body: data, prefer: "return=minimal"))
     }
 
+    func addTask(title: String, category: String?, section: String?, dueDate: String?, memo: Bool) async throws {
+        var body: [String: Any] = ["title": title, "done": false, "memo": memo, "source": "app"]
+        body["category"] = category ?? NSNull()
+        body["work_section"] = section ?? NSNull()
+        body["due_date"] = (dueDate?.isEmpty == false) ? dueDate! : NSNull()
+        let data = try JSONSerialization.data(withJSONObject: body)
+        try await send(request("tasks", method: "POST", body: data, prefer: "return=minimal"))
+    }
+
     func deleteTask(id: String) async throws {
         try await send(request("tasks?id=eq.\(id)", method: "DELETE", prefer: "return=minimal"))
     }

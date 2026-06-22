@@ -167,6 +167,18 @@ final class Store: ObservableObject {
         }
     }
 
+    func addTask(title: String, category: String, section: String?, dueDate: String?, memo: Bool) {
+        Task {
+            do {
+                try await repo.addTask(title: title, category: category,
+                                       section: category == "工作" ? section : nil,
+                                       dueDate: dueDate, memo: memo)
+                showToast("已添加 ✅")
+                await load()
+            } catch { errorText = error.localizedDescription }
+        }
+    }
+
     func logFocus(phase: String, minutes: Int) {
         Task {
             do { try await repo.logFocusSession(phase: phase, minutes: minutes); await load() }

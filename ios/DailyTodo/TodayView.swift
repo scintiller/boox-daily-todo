@@ -9,6 +9,7 @@ struct TodayView: View {
     @State private var showStats = false
     @State private var showGoals = false
     @State private var showPomo = false
+    @State private var adding = false
     // ---- finger-drag to move a task between work sections ----
     // @GestureState auto-resets on gesture end OR cancel → the floating card can never get stuck.
     @GestureState private var drag: DragInfo? = nil
@@ -73,6 +74,18 @@ struct TodayView: View {
             NavigationStack { StatsView(store: store) }.presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showGoals) { GoalsSheet(store: store) }
+        .sheet(isPresented: $adding) {
+            AddTaskView(store: store, defaultCategory: bucket == 0 ? "工作" : "生活")
+        }
+        .overlay(alignment: .bottomTrailing) {
+            Button { adding = true } label: {
+                Image(systemName: "plus").font(.title2.weight(.bold)).foregroundColor(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Color.accentColor))
+                    .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+            }
+            .padding(.trailing, 22).padding(.bottom, 22)
+        }
     }
 
     private func miniButton(systemImage: String, text: String? = nil, badge: Int = 0,
@@ -376,6 +389,68 @@ private struct SectionFrameKey: PreferenceKey {
 extension View {
     @ViewBuilder func applyIf<T: View>(_ cond: Bool, _ transform: (Self) -> T) -> some View {
         if cond { transform(self) } else { self }
+    }
+}
+
+/// Create a new task.
+struct AddTaskView: View {
+    @ObservedObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var category: String
+    @State private var section = "focus"
+    @State private var p1 = false
+    @State private var hasDue = false
+    @State private var due = Date()
+    @State private var memo = false
+
+    init(store: Store, defaultCategory: String = "工作") {
+        self.store = store
+        _category = State(initialValue: defaultCategory)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section { TextField("新任务", text: $title, axis: .vertical) }
+                Section("分类") {
+                    Picker("分类", selection: $category) {
+                        Text("工作").tag("工作"); Text("运动").tag("运动"); Text("生活").tag("生活")
+                    }
+                    .pickerStyle(.segmented)
+                    if category == "工作" {
+                        Picker("分区", selection: $section) {
+                            Text("🔥 专注").tag("focus")
+                            Text("🛠 随手做").tag("feature")
+                        }
+                        if section == "feature" { Toggle("P1 优先 🌟", isOn: $p1) }
+                    }
+                }
+                Section {
+                    Toggle("设为备忘（不进今日）", isOn: $memo)
+                    Toggle("有截止日期", isOn: $hasDue.animation())
+                    if hasDue { DatePicker("截止", selection: $due, displayedComponents: .date) }
+                }
+            }
+            .navigationTitle("新任务")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("添加") { add() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func add() {
+        var t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if category == "工作", section == "feature", p1, !t.contains("🌟") { t = "🌟 " + t }
+        store.addTask(title: t, category: category,
+                      section: category == "工作" ? section : nil,
+                      dueDate: hasDue ? Cal.string(due) : nil, memo: memo)
+        dismiss()
     }
 }
 
