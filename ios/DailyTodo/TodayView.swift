@@ -201,8 +201,8 @@ struct TodayView: View {
             .opacity(drag?.id == t.id ? 0 : 1)   // original stays in tree, just invisible while its copy floats
             .contentShape(Rectangle())
             .applyIf(isWork) {
-                $0.onTapGesture { editing = t }                 // quick tap → edit
-                  .gesture(dragGesture(t, section: resolved))   // press-hold → drag
+                $0.onTapGesture { editing = t }                              // quick tap → edit
+                  .overlay(alignment: .trailing) { dragHandle(t, section: resolved) }  // only the ≡ handle drags → row body still scrolls
             }
             .applyIf(!isWork) { $0.onTapGesture { editing = t }.contextMenu { rowMenu(t, nil) } }
             .padding(.horizontal, 16).padding(.vertical, 5)
@@ -236,19 +236,25 @@ struct TodayView: View {
         }
     }
 
-    // press-and-hold (0.22s) arms the drag; @GestureState `drag` auto-resets on end OR cancel (no stuck).
-    private func dragGesture(_ t: TodoTask, section: String) -> some Gesture {
-        let press = LongPressGesture(minimumDuration: 0.22, maximumDistance: 10)
-        let move = DragGesture(minimumDistance: 0, coordinateSpace: .named("today"))
-        return press.sequenced(before: move)
+    // The ≡ grip on each work row. Drag ONLY starts here, so the rest of the row scrolls
+    // normally inside the ScrollView (the old whole-row long-press gesture stole scroll touches).
+    @ViewBuilder private func dragHandle(_ t: TodoTask, section: String) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.body).foregroundColor(Color(.tertiaryLabel))
+            .frame(width: 44, height: 44)           // generous touch target
+            .contentShape(Rectangle())
+            .gesture(handleDrag(t, section: section))
+    }
+
+    // Direct drag (no long-press needed — it's a dedicated handle). @GestureState `drag`
+    // auto-resets on end OR cancel, so the floating card can never get stuck.
+    private func handleDrag(_ t: TodoTask, section: String) -> some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named("today"))
             .updating($drag) { value, state, _ in
-                if case .second(true, let d?) = value {
-                    state = DragInfo(id: t.id, from: section, location: d.location)
-                }
+                state = DragInfo(id: t.id, from: section, location: value.location)
             }
             .onEnded { value in
-                guard case .second(true, let d?) = value else { return }   // not a real drag (quick tap handled separately)
-                let target = sectionFrames.first { $0.value.contains(d.location) }?.key
+                let target = sectionFrames.first { $0.value.contains(value.location) }?.key
                 if let target, target != section, dropZones.contains(target),
                    let live = store.tasks.first(where: { $0.id == t.id }) {
                     applyDrop(live, to: target)   // ONLY a known, different zone → can never lose a task
@@ -288,7 +294,7 @@ struct TodayView: View {
     }
 
     private func dropHint(_ key: String) -> some View {
-        Text("（空 · 长按别的任务可移过来）").font(.caption).foregroundColor(Color(.tertiaryLabel))
+        Text("（空 · 拖任务右侧 ≡ 可移过来）").font(.caption).foregroundColor(Color(.tertiaryLabel))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16).padding(.vertical, 4)
     }
