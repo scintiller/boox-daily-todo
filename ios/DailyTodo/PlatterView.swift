@@ -13,8 +13,10 @@ private let REST = Color.green
 /// Each is a 72° band (90° sector minus an 18° chopstick gap), between the X at 45°/135°/….
 struct QuadrantWedge: Shape {
     let index: Int
-    // start,end degrees per quadrant (centers at 270/0/90/180 = up/right/down/left)
-    static let spans: [(Double, Double)] = [(234, 306), (324, 396), (54, 126), (144, 216)]
+    // Full 90° sectors that TILE the circle and meet exactly on the diagonals (45/135/225/315);
+    // the two chopsticks are drawn on top of those seams, so there's no white gap.
+    // Centers at 270/0/90/180 = up/right/down/left.
+    static let spans: [(Double, Double)] = [(225, 315), (315, 405), (45, 135), (135, 225)]
 
     func path(in rect: CGRect) -> Path {
         let c = CGPoint(x: rect.midX, y: rect.midY)
@@ -63,12 +65,14 @@ struct BowlView: View {
     private func fill(_ s: QuadState) -> Color {
         switch s {
         case .pending: return FOCUS.opacity(0.10)
-        case .current: return FOCUS.opacity(0.22)
-        case .done:    return FOCUS.opacity(0.85)
+        case .current: return Color.orange.opacity(0.92)   // 进行中 — a distinct warm color
+        case .done:    return FOCUS.opacity(0.80)
         case .carried: return Color(.systemGray4)
         }
     }
-    private func numberColor(_ s: QuadState) -> Color { s == .done ? .white : .secondary }
+    private func numberColor(_ s: QuadState) -> Color {
+        switch s { case .current, .done: return .white; default: return .secondary }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -78,19 +82,18 @@ struct BowlView: View {
 
                 ForEach(platter.quadrants) { q in
                     let st = state(q)
-                    let sel = q.index == selected
                     QuadrantWedge(index: q.index)
                         .fill(fill(st))
                         .overlay {
                             if st == .carried {
-                                Hatch().stroke(Color(.systemGray).opacity(0.4), lineWidth: 1)
+                                Hatch().stroke(Color.white.opacity(0.55), lineWidth: 1.5)
                                     .clipShape(QuadrantWedge(index: q.index))
                             }
                         }
-                        .overlay {
-                            QuadrantWedge(index: q.index)
-                                .stroke(sel || st == .current ? FOCUS : Color(.systemGray4),
-                                        lineWidth: sel ? 3 : (st == .current ? 2.5 : 1))
+                        .overlay {   // only the tapped/selected quadrant gets an outline
+                            if q.index == selected {
+                                QuadrantWedge(index: q.index).stroke(FOCUS, lineWidth: 3)
+                            }
                         }
                         .contentShape(QuadrantWedge(index: q.index))
                         .onTapGesture { onTap(q.index) }
@@ -112,7 +115,7 @@ struct BowlView: View {
 
                 // center hub
                 Circle().fill(Color(.secondarySystemBackground))
-                    .frame(width: side * 0.30, height: side * 0.30)
+                    .frame(width: side * 0.32, height: side * 0.32)
                     .overlay(Circle().stroke(Color(.systemGray4), lineWidth: 1))
                     .overlay {
                         VStack(spacing: 1) {
@@ -139,8 +142,8 @@ struct BowlView: View {
 
     private func chopstick(side: CGFloat, deg: Double) -> some View {
         Capsule()
-            .fill(resting ? REST : Color(.systemGray3))
-            .frame(width: side * 1.02, height: side * 0.045)
+            .fill(resting ? REST : Color(.systemGray))
+            .frame(width: side * 1.04, height: side * 0.052)
             .rotationEffect(.degrees(deg))
             .animation(.easeInOut(duration: 0.3), value: resting)
             .allowsHitTesting(false)
@@ -153,29 +156,30 @@ struct PlatterView: View {
     @ObservedObject var platterStore: PlatterStore
     @ObservedObject var pomo: Pomodoro
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selected = 0
     @State private var newItem = ""
-    @State private var savedWork = 45
-    @State private var savedRest = 5
-    @State private var snapped = false
     @State private var showReset = false
 
     private var platter: Platter { platterStore.platter }
     private var q: Quadrant { platter.quadrants[min(max(selected, 0), 3)] }
     private var resting: Bool { pomo.phase == .rest && pomo.running }
-    /// The timer is dedicated to the currently-selected quadrant's focus.
-    private var runningThis: Bool { pomo.phase == .work && platter.current == selected && (pomo.running || pomo.awaitingChoice) }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 intro
-                durationToggles
-                BowlView(platter: platter, resting: resting, selected: selected) { selected = $0 }
+                BowlView(platter: platter, resting: resting, selected: selected) { tapped in
+                    // Don't move the panel off a live block — that hides the 完成/顺延 controls
+                    // and would let 开始专注 leap the cursor. Browsing while idle/resting is fine.
+                    if pomo.phase == .work && (pomo.running || pomo.awaitingChoice) { return }
+                    selected = tapped
+                }
                     .frame(height: 300)
                     .padding(.horizontal, 8)
                 quadrantPanel
+                durationToggles
                 footer
             }
             .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 28)
@@ -186,17 +190,24 @@ struct PlatterView: View {
         .onAppear {
             platterStore.reloadForNow()
             selected = platter.current
-            if !snapped { savedWork = pomo.workMins; savedRest = pomo.restMins; snapped = true }
         }
-        .onDisappear {
-            // restore the user's normal 🍅 presets — but never mid-session (would corrupt the
-            // logged FocusSession minutes, which come from duration(phase)=workMins).
-            if snapped && !pomo.running {
-                pomo.workMins = savedWork; pomo.restMins = savedRest
+        .onChange(of: pomo.awaitingChoice) { awaiting in
+            // A focus block just ended → snap the panel back to the quadrant that actually ran,
+            // so its 完成/顺延 choice always shows (and can't be hidden by browsing ahead).
+            if awaiting { selected = platter.current }
+        }
+        .onChange(of: scenePhase) { phase in
+            // Handle am→pm / midnight rollover while the app was backgrounded — but never mid-run.
+            if phase == .active && !pomo.running && !pomo.awaitingChoice {
+                platterStore.reloadForNow()
+                selected = platterStore.platter.current
             }
         }
         .confirmationDialog("清空这份拼盘、重新规划？", isPresented: $showReset, titleVisibility: .visible) {
-            Button("清空重来", role: .destructive) { platterStore.reset(); selected = 0 }
+            Button("清空重来", role: .destructive) {
+                if pomo.running || pomo.awaitingChoice { pomo.reset() }   // don't strand a live timer
+                platterStore.reset(); selected = 0
+            }
             Button("取消", role: .cancel) {}
         }
     }
@@ -287,33 +298,35 @@ struct PlatterView: View {
 
     // Timer-state-driven controls for this quadrant.
     @ViewBuilder private var actionRow: some View {
-        if pomo.awaitingChoice && platter.current == selected {
-            // focus block ended, still on 专注 → finish or 顺延
+        if pomo.awaitingChoice {
+            // A focus block just ended (still on 专注) → finish or 顺延 the current quadrant.
             VStack(spacing: 8) {
-                Text("这一格时间到 🎉").font(.subheadline).foregroundColor(FOCUS)
+                Text("第 \(platter.current + 1) 格时间到 🎉").font(.subheadline).foregroundColor(FOCUS)
                 HStack(spacing: 10) {
                     pill("完成本格", icon: "checkmark", tint: FOCUS, filled: false) { finishQuadrant() }
                     pill("顺延到下一格", icon: "arrow.turn.down.right", tint: .orange, filled: true) { carryOver() }
                 }
             }
-        } else if runningThis && pomo.running {
+        } else if pomo.phase == .work && pomo.running {
             HStack(spacing: 12) {
                 Label(pomo.label, systemImage: "timer").font(.headline).monospacedDigit().foregroundColor(FOCUS)
                 Spacer()
                 pill("跳过", icon: "forward.end.fill", tint: .secondary, filled: false) { pomo.skip() }
             }
-        } else if resting {
+        } else if pomo.phase == .rest && pomo.running {
             HStack(spacing: 12) {
                 Label("休息中 " + pomo.label, systemImage: "cup.and.saucer.fill").font(.headline).monospacedDigit().foregroundColor(REST)
                 Spacer()
                 pill("跳过休息", icon: "forward.end.fill", tint: .secondary, filled: false) { pomo.skip() }
             }
-        } else if pomo.phase == .rest && pomo.idle {
+        } else if pomo.phase == .rest {
+            // rest queued/idle (not running) — start it regardless of the exact remaining value
             pill("开始休息 · \(platter.restMins)分", icon: "cup.and.saucer.fill", tint: REST, filled: true) { pomo.start() }
                 .frame(maxWidth: .infinity)
         } else {
-            pill("开始这一格专注 · \(platter.focusMins)分", icon: "play.fill", tint: FOCUS, filled: true) {
-                startQuadrant(selected)
+            // idle on 专注 → always start the ritual's CURRENT quadrant (never leap the cursor)
+            pill("开始第 \(platter.current + 1) 格专注 · \(platter.focusMins)分", icon: "play.fill", tint: FOCUS, filled: true) {
+                startQuadrant(platter.current)
             }
             .frame(maxWidth: .infinity)
         }
@@ -345,6 +358,9 @@ struct PlatterView: View {
 
     /// Point the shared Pomodoro at this quadrant and start a fresh focus block.
     private func startQuadrant(_ i: Int) {
+        // If a focus block is mid-run, end it via skip() so its elapsed minutes are still
+        // logged (reset() would discard them silently).
+        if pomo.phase == .work && pomo.running { pomo.skip() }
         platterStore.setCurrent(i)
         selected = i
         pomo.workMins = platter.focusMins
@@ -354,14 +370,17 @@ struct PlatterView: View {
     }
 
     private func finishQuadrant() {
+        guard pomo.awaitingChoice else { return }   // ignore a double-tap
+        pomo.chooseRest()                            // clears awaitingChoice synchronously FIRST
         platterStore.advance()
         selected = platter.current
-        pomo.chooseRest()     // switch to 休息 phase, stopped — user taps 开始休息
     }
 
     private func carryOver() {
-        platterStore.carryOver(from: platter.current)   // moves unchecked → next, flags carried, advances
-        selected = platter.current
+        guard pomo.awaitingChoice else { return }
+        let from = platter.current                   // snapshot before mutating the cursor
         pomo.chooseRest()
+        platterStore.carryOver(from: from)
+        selected = platter.current
     }
 }

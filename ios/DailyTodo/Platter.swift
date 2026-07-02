@@ -168,8 +168,8 @@ final class PlatterStore: ObservableObject {
                 platter.quadrants[next].items.append(
                     PlatterItem(title: it.title, done: false, carriedFrom: origin))
             }
-            platter.quadrants[i].items.removeAll { !$0.done }   // keep done ones as its record
         }
+        platter.quadrants[i].items.removeAll { !$0.done }   // clear open items in ALL cases (incl. last 格)
         platter.quadrants[i].carried = true
         persist()
         advance()
