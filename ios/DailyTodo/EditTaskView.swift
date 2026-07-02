@@ -35,8 +35,9 @@ struct EditTaskView: View {
                 Section("分类") {
                     Picker("分类", selection: $category) {
                         Text("工作").tag("工作")
-                        Text("运动").tag("运动")
+                        Text("科研").tag("科研")
                         Text("生活").tag("生活")
+                        Text("运动").tag("运动")
                     }
                     .pickerStyle(.segmented)
                     if category == "工作" {

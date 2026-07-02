@@ -25,6 +25,16 @@ struct TodayView: View {
         !t.done && !t.memo && (t.dueDate == nil || t.dueDate! <= today)
     }
 
+    // 0=工作 1=科研 2=生活（其它/无分类归到生活）
+    private func inBucket(_ t: TodoTask, _ b: Int) -> Bool {
+        switch b {
+        case 0: return t.category == "工作"
+        case 1: return t.category == "科研"
+        default: return t.category != "工作" && t.category != "科研"
+        }
+    }
+    private let bucketNames = ["工作", "科研", "生活"]
+
     var body: some View {
         VStack(spacing: 0) {
             // single header row: 工作/生活 toggle (left) + small buttons (right)
@@ -41,7 +51,11 @@ struct TodayView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if bucket == 0 { workContent } else { lifeContent }
+                    switch bucket {
+                    case 0: workContent
+                    case 1: researchContent
+                    default: lifeContent
+                    }
                 }
                 .padding(.bottom, 28)
                 .background(
@@ -80,13 +94,13 @@ struct TodayView: View {
             NavigationStack { StatsView(store: store) }.presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showPlatter) {
-            NavigationStack { PlatterView(platterStore: platterStore, pomo: pomo) }
+            NavigationStack { PlatterView(platterStore: platterStore, pomo: pomo, store: store) }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showGoals) { GoalsSheet(store: store) }
         .sheet(isPresented: $adding) {
-            AddTaskView(store: store, defaultCategory: bucket == 0 ? "工作" : "生活")
+            AddTaskView(store: store, defaultCategory: bucketNames[bucket])
         }
         .overlay(alignment: .bottomTrailing) {
             Button { adding = true } label: {
@@ -118,11 +132,11 @@ struct TodayView: View {
 
     private var bucketToggle: some View {
         HStack(spacing: 0) {
-            ForEach(0..<2, id: \.self) { i in
-                Text(["工作", "生活"][i])
+            ForEach(0..<3, id: \.self) { i in
+                Text(["工作", "科研", "生活"][i])
                     .font(.subheadline).fontWeight(.semibold)
                     .foregroundColor(bucket == i ? .white : .secondary)
-                    .padding(.horizontal, 16).padding(.vertical, 6)
+                    .padding(.horizontal, 13).padding(.vertical, 6)
                     .background { if bucket == i { Capsule().fill(Color.accentColor) } }
                     .contentShape(Capsule())
                     .onTapGesture { withAnimation(.easeInOut(duration: 0.18)) { bucket = i } }
@@ -164,22 +178,29 @@ struct TodayView: View {
             subHeader("· 未分类")
             ForEach(uncat) { t in baseCell(t) }
         }
-        completedRows(work: true)
+        completedRows()
+    }
+
+    @ViewBuilder private var researchContent: some View {
+        let pending = store.tasks.filter { inBucket($0, 1) && isPending($0) }
+        if pending.isEmpty { emptyRow("科研没有待办 🎉") }
+        ForEach(pending) { t in baseCell(t) }
+        completedRows()
     }
 
     @ViewBuilder private var lifeContent: some View {
-        let pending = store.tasks.filter { $0.category != "工作" && isPending($0) }
+        let pending = store.tasks.filter { inBucket($0, 2) && isPending($0) }
         if pending.isEmpty { emptyRow("生活没有待办 🎉") }
         ForEach(pending) { t in baseCell(t) }
         subHeader("今日 Routine")
         if store.routines.isEmpty { emptyRow("还没有 routine") }
         ForEach(store.routines) { r in routineCell(r) }
-        completedRows(work: false)
+        completedRows()
     }
 
-    @ViewBuilder private func completedRows(work: Bool) -> some View {
+    @ViewBuilder private func completedRows() -> some View {
         let doneItems = store.tasks
-            .filter { $0.done && (($0.category == "工作") == work) }
+            .filter { $0.done && inBucket($0, bucket) }
             .compactMap { t in Cal.parseTimestamp(t.completedAt).map { ($0, t) } }
         if doneItems.contains(where: { Cal.string($0.0) == today || Cal.string($0.0) == yesterday }) {
             subHeader("已完成")
@@ -432,7 +453,7 @@ struct AddTaskView: View {
                 Section { TextField("新任务", text: $title, axis: .vertical) }
                 Section("分类") {
                     Picker("分类", selection: $category) {
-                        Text("工作").tag("工作"); Text("运动").tag("运动"); Text("生活").tag("生活")
+                        Text("工作").tag("工作"); Text("科研").tag("科研"); Text("生活").tag("生活"); Text("运动").tag("运动")
                     }
                     .pickerStyle(.segmented)
                     if category == "工作" {

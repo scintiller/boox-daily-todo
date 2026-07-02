@@ -174,6 +174,7 @@ struct BowlView: View {
 struct PlatterView: View {
     @ObservedObject var platterStore: PlatterStore
     @ObservedObject var pomo: Pomodoro
+    @ObservedObject var store: Store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -184,6 +185,22 @@ struct PlatterView: View {
     private var platter: Platter { platterStore.platter }
     private var q: Quadrant { platter.quadrants[min(max(selected, 0), 3)] }
     private var resting: Bool { pomo.phase == .rest && pomo.running }
+
+    /// Strip the P1 🌟 marker so the platter item reads cleanly.
+    private func candTitle(_ t: TodoTask) -> String {
+        t.title.replacingOccurrences(of: "🌟 ", with: "").trimmingCharacters(in: .whitespaces)
+    }
+    /// Candidate tasks to one-tap into a quadrant: your 工作 专注-section items + all 科研 tasks,
+    /// minus anything already sitting in the platter.
+    private var focusCandidates: [TodoTask] {
+        let taken = Set(platter.quadrants.flatMap { $0.items.map(\.title) })
+        return store.tasks.filter { t in
+            guard !t.done, !t.memo else { return false }
+            let focus = t.category == "工作" && (t.workSection ?? "") == "focus"
+            let research = t.category == "科研"
+            return (focus || research) && !taken.contains(candTitle(t))
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -289,6 +306,21 @@ struct PlatterView: View {
                 Button(action: addItem) {
                     Image(systemName: "plus.circle.fill").font(.title2).foregroundColor(FOCUS)
                 }.buttonStyle(.plain).disabled(newItem.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            if !focusCandidates.isEmpty {
+                Divider().padding(.vertical, 2)
+                Text("从专注 / 科研任务加").font(.caption).foregroundColor(.secondary)
+                ForEach(focusCandidates) { t in
+                    Button { platterStore.addItem(candTitle(t), to: selected) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle").font(.title3).foregroundColor(FOCUS)
+                            Text(candTitle(t)).font(.subheadline).foregroundColor(.primary)
+                                .lineLimit(1).truncationMode(.tail)
+                            Spacer(minLength: 0)
+                        }
+                    }.buttonStyle(.plain)
+                }
             }
 
             actionRow
