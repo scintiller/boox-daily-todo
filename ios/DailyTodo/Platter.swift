@@ -79,8 +79,8 @@ struct Platter: Codable, Identifiable, Equatable {
     var totalOpen: Int { quadrants.reduce(0) { $0 + $1.openItems.count } }
     var totalItems: Int { quadrants.reduce(0) { $0 + $1.items.count } }
     var totalDone: Int { quadrants.reduce(0) { $0 + $1.doneCount } }
-    /// How many of the 4 quadrants are "eaten" (all items checked, or 顺延'd away).
-    var settledCount: Int { quadrants.filter { $0.allDone || $0.carried }.count }
+    /// How many of the 4 quadrants are "eaten" (finished, 顺延'd, or passed behind the cursor).
+    var settledCount: Int { quadrants.filter { $0.allDone || $0.carried || $0.index < current }.count }
     var allSettled: Bool { quadrants.allSatisfy { $0.allDone || $0.carried || $0.items.isEmpty } }
 }
 

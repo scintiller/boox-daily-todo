@@ -55,8 +55,8 @@ struct BowlView: View {
     let onTap: (Int) -> Void
 
     private func state(_ q: Quadrant) -> QuadState {
-        if q.allDone { return .done }
-        if q.carried { return .carried }
+        if q.carried { return .carried }                                   // 顺延'd → hatched
+        if q.allDone || q.index < platter.current { return .done }         // finished OR passed (behind cursor)
         if q.index == platter.current { return .current }
         return .pending
     }
@@ -309,12 +309,8 @@ struct PlatterView: View {
                 pill("跳过休息", icon: "forward.end.fill", tint: .secondary, filled: false) { pomo.skip() }
             }
         } else if pomo.phase == .rest && pomo.idle {
-            HStack(spacing: 10) {
-                pill("开始休息 · \(platter.restMins)分", icon: "cup.and.saucer.fill", tint: REST, filled: true) { pomo.start() }
-                if platter.current < 3 {
-                    pill("下一格 →", icon: "arrow.right", tint: FOCUS, filled: false) { goToNext() }
-                }
-            }
+            pill("开始休息 · \(platter.restMins)分", icon: "cup.and.saucer.fill", tint: REST, filled: true) { pomo.start() }
+                .frame(maxWidth: .infinity)
         } else {
             pill("开始这一格专注 · \(platter.focusMins)分", icon: "play.fill", tint: FOCUS, filled: true) {
                 startQuadrant(selected)
@@ -367,11 +363,5 @@ struct PlatterView: View {
         platterStore.carryOver(from: platter.current)   // moves unchecked → next, flags carried, advances
         selected = platter.current
         pomo.chooseRest()
-    }
-
-    private func goToNext() {
-        platterStore.advance()
-        selected = platter.current
-        pomo.reset()          // back to a clean 专注 idle for the next quadrant
     }
 }
