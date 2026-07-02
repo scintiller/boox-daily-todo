@@ -15,10 +15,12 @@
 		6C8A1CD2EEC3D226B18F4263 /* DailyTodoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456E5A4D9C42AA4855B05A4E /* DailyTodoApp.swift */; };
 		98542E44E9D01147CB65E67B /* CelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CF2E80744B4C75CFF3D5102 /* CelebrationView.swift */; };
 		A0F66968E732915559FD86B8 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F88774AA4182AA7E259B1ADD /* Models.swift */; };
+		A28D7A90C715F74FC3042B8B /* PlatterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98514D61210B2877F2851750 /* PlatterView.swift */; };
 		A8E1EADC83AF0B2CB2C31DC4 /* Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8351A0C4A5B59E93ABF8660 /* Util.swift */; };
 		B6481B0EEFCCA98363F1130E /* Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2857DB03371B739A6F8317B0 /* Repository.swift */; };
 		B8B0B47AC87F3914D797E323 /* WeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02C786FA73BC47319579A14 /* WeatherViews.swift */; };
 		C9BDB46762298F79235DCE12 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF01E51CDF49F9EB447E7385 /* TodayView.swift */; };
+		DF1EDEC1A20F94B237256061 /* Platter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E60AE0B52F24B03F19CE637F /* Platter.swift */; };
 		DF6471680C04A7EEBE6E6F05 /* EditTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1618DFDE4143B597142FC35C /* EditTaskView.swift */; };
 		E26217B1B3AC5F9A3C6781DC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */; };
 		EF2440A623045F6656E9ABC7 /* MemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */; };
@@ -39,9 +41,11 @@
 		798193D174D31CFB8927E23A /* Chime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chime.swift; sourceTree = "<group>"; };
 		81A51DD8FC7C2C86C7416C8B /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		8B0BDA66530D103FDAD52AD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		98514D61210B2877F2851750 /* PlatterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatterView.swift; sourceTree = "<group>"; };
 		D02C786FA73BC47319579A14 /* WeatherViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherViews.swift; sourceTree = "<group>"; };
 		D791A43C6A892203C0A41D45 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 		D8351A0C4A5B59E93ABF8660 /* Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Util.swift; sourceTree = "<group>"; };
+		E60AE0B52F24B03F19CE637F /* Platter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Platter.swift; sourceTree = "<group>"; };
 		EC8DE5F5FAAE763B297D7814 /* Pomodoro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pomodoro.swift; sourceTree = "<group>"; };
 		EF01E51CDF49F9EB447E7385 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		F88774AA4182AA7E259B1ADD /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -67,6 +71,8 @@
 				1E94951A4EFCB9EAFCECB7E1 /* FocusDesigns.swift */,
 				5D4EA400BA9B0CCDE31C8BCB /* MemoView.swift */,
 				F88774AA4182AA7E259B1ADD /* Models.swift */,
+				E60AE0B52F24B03F19CE637F /* Platter.swift */,
+				98514D61210B2877F2851750 /* PlatterView.swift */,
 				EC8DE5F5FAAE763B297D7814 /* Pomodoro.swift */,
 				2857DB03371B739A6F8317B0 /* Repository.swift */,
 				11513273E0BA175A7F553435 /* RootView.swift */,
@@ -119,6 +125,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					D8C314A63B213C1412BC9709 = {
+						DevelopmentTeam = PABSWZ3LM4;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 71030115A7847D8C73EE298A /* Build configuration list for PBXProject "DailyTodo" */;
@@ -185,6 +195,8 @@
 				376AE487913188237B40B644 /* FocusDesigns.swift in Sources */,
 				EF2440A623045F6656E9ABC7 /* MemoView.swift in Sources */,
 				A0F66968E732915559FD86B8 /* Models.swift in Sources */,
+				DF1EDEC1A20F94B237256061 /* Platter.swift in Sources */,
+				A28D7A90C715F74FC3042B8B /* PlatterView.swift in Sources */,
 				F7F483F9AD4055406E279539 /* Pomodoro.swift in Sources */,
 				B6481B0EEFCCA98363F1130E /* Repository.swift in Sources */,
 				FC24337F63970F10B70D2442 /* RootView.swift in Sources */,
@@ -253,9 +265,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = PABSWZ3LM4;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -312,9 +326,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = PABSWZ3LM4;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;

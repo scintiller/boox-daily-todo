@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @StateObject private var store = Store()
     @StateObject private var pomo = Pomodoro()
+    @StateObject private var platterStore = PlatterStore()
     @State private var tab = 0
     @State private var weatherExpanded = false
 
@@ -56,7 +57,7 @@ struct RootView: View {
             Divider()
 
             switch tab {
-            case 0: TodayView(store: store, pomo: pomo)
+            case 0: TodayView(store: store, pomo: pomo, platterStore: platterStore)
             default: MemoView(store: store)
             }
         }

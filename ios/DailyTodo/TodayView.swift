@@ -3,12 +3,14 @@ import SwiftUI
 struct TodayView: View {
     @ObservedObject var store: Store
     @ObservedObject var pomo: Pomodoro
+    @ObservedObject var platterStore: PlatterStore
     @State private var bucket = 0           // 0=工作 1=生活
     @State private var style: TaskStyle = .card
     @State private var editing: TodoTask?
     @State private var showStats = false
     @State private var showGoals = false
     @State private var showPomo = false
+    @State private var showPlatter = false
     @State private var adding = false
     // ---- finger-drag to move a task between work sections ----
     // @GestureState auto-resets on gesture end OR cancel → the floating card can never get stuck.
@@ -30,6 +32,7 @@ struct TodayView: View {
                 bucketToggle
                 Spacer()
                 miniButton(systemImage: "target") { showGoals = true }
+                miniButton(systemImage: "circle.grid.2x2") { showPlatter = true }
                 miniButton(systemImage: "timer", text: pomo.running ? pomo.label : nil,
                            tint: pomo.running ? (pomo.phase == .work ? .indigo : .green) : nil) { showPomo = true }
                 miniButton(systemImage: "chart.bar.xaxis") { showStats = true }
@@ -57,7 +60,10 @@ struct TodayView: View {
                 }
             }
         }
-        .onAppear { style = TaskStyle.fromArgs() }
+        .onAppear {
+            style = TaskStyle.fromArgs()
+            if ProcessInfo.processInfo.arguments.contains("-PlatterOpen") { showPlatter = true }
+        }
         .sheet(item: $editing) { t in
             EditTaskView(task: t, onSave: { store.updateTask($0) }, onDelete: { store.deleteTask(t) })
         }
@@ -72,6 +78,11 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showStats) {
             NavigationStack { StatsView(store: store) }.presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showPlatter) {
+            NavigationStack { PlatterView(platterStore: platterStore, pomo: pomo) }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showGoals) { GoalsSheet(store: store) }
         .sheet(isPresented: $adding) {
