@@ -21,7 +21,7 @@ struct QuadrantWedge: Shape {
     func path(in rect: CGRect) -> Path {
         let c = CGPoint(x: rect.midX, y: rect.midY)
         let rO = min(rect.width, rect.height) / 2
-        let rI = rO * 0.30
+        let rI = rO * 0.22
         let (s, e) = Self.spans[index]
         var p = Path()
         p.addArc(center: c, radius: rO, startAngle: .degrees(s), endAngle: .degrees(e), clockwise: false)
@@ -62,20 +62,20 @@ struct BowlView: View {
 
     @ViewBuilder private func centerLabel(_ side: CGFloat) -> some View {
         if pomo.awaitingChoice {
-            VStack(spacing: 2) {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: side * 0.10))
-                Text("完成").font(.system(size: side * 0.046, weight: .bold))
+            VStack(spacing: 1) {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: side * 0.072))
+                Text("完成").font(.system(size: side * 0.040, weight: .bold))
             }.foregroundColor(FOCUS)
         } else if pomo.running {
             Text(pomo.label)
-                .font(.system(size: side * 0.075, weight: .bold, design: .rounded))
+                .font(.system(size: side * 0.058, weight: .bold, design: .rounded))
                 .monospacedDigit().foregroundColor(centerTint)
         } else {
             let rest = pomo.phase == .rest
-            VStack(spacing: 2) {
-                Image(systemName: "play.fill").font(.system(size: side * 0.085))
+            VStack(spacing: 1) {
+                Image(systemName: "play.fill").font(.system(size: side * 0.064))
                 Text(rest ? "休息" : (pomo.idle ? "开始" : "继续"))
-                    .font(.system(size: side * 0.048, weight: .bold))
+                    .font(.system(size: side * 0.042, weight: .bold))
             }.foregroundColor(rest ? REST : FOCUS)
         }
     }
@@ -144,7 +144,7 @@ struct BowlView: View {
                         .overlay { centerLabel(side) }
                 }
                 .buttonStyle(.plain)
-                .frame(width: side * 0.36, height: side * 0.36)
+                .frame(width: side * 0.26, height: side * 0.26)
             }
             .frame(width: side, height: side)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -161,8 +161,8 @@ struct BowlView: View {
 
     private func chopstick(side: CGFloat, deg: Double) -> some View {
         Capsule()
-            .fill(resting ? REST : Color(.systemGray))
-            .frame(width: side * 1.04, height: side * 0.052)
+            .fill(resting ? REST : Color(.systemGray3))
+            .frame(width: side * 1.0, height: side * 0.028)
             .rotationEffect(.degrees(deg))
             .animation(.easeInOut(duration: 0.3), value: resting)
             .allowsHitTesting(false)
